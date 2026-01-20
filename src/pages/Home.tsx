@@ -1,241 +1,201 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/authSlice";
 import { useNavigate } from "react-router-dom";
+import { api } from "../services/api";
 
 interface Thread {
   id: number;
   author: {
     username: string;
     full_name?: string;
-    photo_profile?: string; // URL or undefined
+    photo_profile?: string;
   };
   content: string;
-  image?: string;
+  image?: string | null;
   likes: number;
   replies: number;
   likedByMe: boolean;
   createdAt: string;
 }
 
-// Dummy threads
-const dummyThreads: Thread[] = [
-  {
-    id: 1,
-    author: {
-      username: "sharorukaforever",
-      full_name: "Charlotta Skopovskaya",
-      photo_profile: "https://randomuser.me/api/portraits/women/65.jpg",
-    },
-    content:
-      "Ruka is once again the center of attention after her stunning performance. Other women should stay away from Ruka.",
-    likes: 50,
-    replies: 400,
-    likedByMe: true,
-    createdAt: "4h",
-  },
-  {
-    id: 2,
-    author: {
-      username: "cinderellagray",
-      full_name: "Oguri Cap",
-      photo_profile: "https://randomuser.me/api/portraits/women/43.jpg",
-    },
-    content:
-      "Is this how you use the app? Hello. I'm getting hungry.",
-    likes: 400,
-    replies: 500,
-    likedByMe: false,
-    createdAt: "17h",
-  },
-  {
-    id: 3,
-    author: {
-      username: "notchar",
-      full_name: "Lieutenant Quattro",
-      photo_profile: "https://randomuser.me/api/portraits/men/37.jpg",
-    },
-    content:
-      "Just finished watching the latest episode of 'True War Tales'. How laughable, this is clearly fictional. When I have the time, I'll visit the whole team and laugh at their faces!",
-    likes: 351,
-    replies: 412,
-    likedByMe: false,
-    createdAt: "10h",
-  },
-  {
-    id: 4,
-    author: {
-      username: "breakthebarrier",
-      full_name: "Lloyd Bannings",
-      photo_profile: "https://randomuser.me/api/portraits/men/12.jpg",
-    },
-    content: "Public Service Announcement on not getting scammed: A thread.",
-    image:
-      "https://dummyimage.com/600x400/000/fff&text=PSA",
-    likes: 10,
-    replies: 30,
-    likedByMe: false,
-    createdAt: "Jul 25",
-  },
-];
-
 const Home = () => {
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const [threads, setThreads] = useState<Thread[]>(dummyThreads);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Logout handler
+  // Logout
   const handleLogout = () => {
     dispatch(logout());
     navigate("/");
   };
 
-  const toggleLike = (id: number) => {
+  // Fetch threads
+  const fetchThreads = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get<Thread[]>("/threads");
+      setThreads(res.data);
+    } catch (error) {
+      console.error("Failed to fetch threads", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchThreads();
+  }, []);
+
+  // Toggle like
+  const toggleLike = async (id: number) => {
+    // optimistic update
     setThreads((prev) =>
       prev.map((thread) =>
         thread.id === id
           ? {
               ...thread,
               likedByMe: !thread.likedByMe,
-              likes: thread.likedByMe ? thread.likes - 1 : thread.likes + 1,
+              likes: thread.likedByMe
+                ? thread.likes - 1
+                : thread.likes + 1,
             }
           : thread
       )
     );
+
+    try {
+      await api.post(`/threads/${id}/like`);
+    } catch (error) {
+      console.error("Failed to toggle like", error);
+      fetchThreads(); // rollback if error
+    }
   };
 
   return (
     <div className="flex gap-6 min-h-[calc(100vh-4rem)] bg-[#121212] text-white px-8 py-6">
       {/* Left Sidebar */}
-<aside className="w-60 flex flex-col gap-6 border-r border-[#222]">
-  {/* Logo */}
-  <h1 className="text-3xl font-bold text-green-500 mb-4">circle</h1>
+      <aside className="w-60 flex flex-col gap-6 border-r border-[#222]">
+        <h1 className="text-3xl font-bold text-green-500 mb-4">circle</h1>
 
-  {/* Navigation */}
-  <nav className="flex flex-col gap-4">
-    {[
-      { label: "Home", icon: "🏠︎" },
-      { label: "Search", icon: "🔍︎" },
-      { label: "Follows", icon: "❤︎" },
-      { label: "Profile", icon: "👤" },
-    ].map(({ label, icon }) => (
-      <button
-        key={label}
-        className="flex items-center gap-3 text-white hover:text-green-500 font-semibold text-lg"
-      >
-        <span>{icon}</span> {label}
-      </button>
-    ))}
-  </nav>
+        <nav className="flex flex-col gap-4">
+          {[
+            { label: "Home", icon: "🏠︎" },
+            { label: "Search", icon: "🔍︎" },
+            { label: "Follows", icon: "❤︎" },
+            { label: "Profile", icon: "👤" },
+          ].map(({ label, icon }) => (
+            <Button
+              key={label}
+              className="flex items-center gap-3 hover:text-green-500 font-semibold text-lg"
+            >
+              <span>{icon}</span> {label}
+            </Button>
+          ))}
+        </nav>
 
-  <button className="bg-green-500 hover:bg-green-600 text-black font-semibold py-2 rounded-full mt-2">
-    Create Post
-  </button>
+        <Button className="bg-green-500 hover:bg-green-600 text-black font-semibold py-2 rounded-full">
+          Create Post
+        </Button>
 
-  <button
-    onClick={handleLogout}
-    className="flex items-center gap-2 text-white hover:text-red-600 mt-auto font-semibold text-lg"
-  >
-    <span>⍈</span> Logout
-  </button>
-</aside>
-
+        <Button
+          onClick={handleLogout}
+          className="flex items-center gap-2 hover:text-red-600 mt-auto font-semibold text-lg"
+        >
+          <span>⍈</span> Logout
+        </Button>
+      </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col gap-6 max-w-2xl">
-        <header className="flex items-center gap-4 text-muted-foreground">
+        {/* Create thread input (UI only for now) */}
+        <header className="flex items-center gap-4">
           <img
             src={user?.photo_profile || "https://randomuser.me/api/portraits/lego/1.jpg"}
-            alt="Profile"
             className="w-10 h-10 rounded-full"
           />
           <input
-            type="text"
             placeholder="What is happening?!"
-            className="flex-1 bg-[#222] rounded-full px-4 py-2 text-white placeholder:text-gray-400 outline-none"
+            className="flex-1 bg-[#222] rounded-full px-4 py-2 outline-none"
           />
-          <button className="bg-green-500 px-4 py-2 rounded-full font-semibold hover:bg-green-600">
+          <Button className="bg-green-500 px-4 py-2 rounded-full font-semibold">
             Post
-          </button>
+          </Button>
         </header>
 
         {/* Threads */}
         <section className="flex flex-col gap-6">
-          {threads.map((thread) => (
-            <Card key={thread.id} className="bg-[#1a1a1a] border-[#2a2a2a] p-4">
-              <header className="flex items-center gap-4 mb-2">
-                <img
-                  src={thread.author.photo_profile || ""}
-                  alt={thread.author.username}
-                  className="w-12 h-12 rounded-full"
-                />
-                <div className="flex flex-col">
-                  <span className="font-semibold text-white">
-                    {thread.author.full_name ? `${thread.author.full_name} ` : ""}
-                    <span className="text-gray-400">@{thread.author.username}</span>
-                  </span>
-                  <span className="text-sm text-gray-400">{thread.createdAt}</span>
-                </div>
-              </header>
+          {loading && <p className="text-gray-400">Loading threads...</p>}
 
-              <p className="text-white">{thread.content}</p>
+          {!loading &&
+            threads.map((thread) => (
+              <Card key={thread.id} className="bg-[#1a1a1a] p-4 border-[#2a2a2a]">
+                <header className="flex items-center gap-4 mb-2">
+                  <img
+                    src={
+                      thread.author.photo_profile ||
+                      "https://randomuser.me/api/portraits/lego/1.jpg"
+                    }
+                    className="w-12 h-12 rounded-full"
+                  />
+                  <div>
+                    <p className="font-semibold text-white">
+                      {thread.author.full_name}{" "}
+                      <span className="text-gray-400">
+                        @{thread.author.username}
+                      </span>
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      {new Date(thread.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </header>
 
-              {thread.image && (
-                <img
-                  src={thread.image}
-                  alt="Thread"
-                  className="mt-4 rounded-lg max-h-72 object-cover"
-                />
-              )}
+                <p className="text-white">{thread.content}</p>
 
-              <footer className="mt-4 flex items-center gap-6 text-gray-400">
-                <button
-                  onClick={() => toggleLike(thread.id)}
-                  className={`flex items-center gap-2 ${
-                    thread.likedByMe ? "text-red-500" : "hover:text-red-500"
-                  }`}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill={thread.likedByMe ? "currentColor" : "none"}
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                  {thread.likes}
-                </button>
+                {thread.image && (
+                  <img
+                    src={`http://localhost:3000/uploads/${thread.image}`}
+                    className="mt-4 rounded-lg"
+                  />
+                )}
 
-                <div className="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 8h10M7 12h4m-4 4h6"
-                    />
-                  </svg>
-                  {thread.replies} Replies
-                </div>
-              </footer>
-            </Card>
-          ))}
+                <footer className="mt-4 flex gap-6 text-gray-400">
+                  <Button
+  onClick={() => toggleLike(thread.id)}
+  className={`flex items-center gap-2 transition-colors ${
+    thread.likedByMe
+      ? "text-red-500"
+      : "text-gray-400 hover:text-red-500"
+  }`}
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill={thread.likedByMe ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={2}
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+    />
+  </svg>
+  <span>{thread.likes}</span>
+</Button>
+
+
+                  <span>🗨️ {thread.replies} Replies</span>
+                </footer>
+              </Card>
+            ))}
         </section>
       </main>
 
@@ -259,18 +219,18 @@ const Home = () => {
 
           <div className="flex justify-around mt-4 text-sm text-gray-400">
             <div>
-              <span className="block font-semibold text-white">291</span>
+              <span className="block font-semibold text-white">0</span>
               Following
             </div>
             <div>
-              <span className="block font-semibold text-white">23</span>
+              <span className="block font-semibold text-white">0</span>
               Followers
             </div>
           </div>
 
-          <button className="mt-4 w-full py-2 bg-[#222] rounded-md hover:bg-[#333] font-semibold">
+          <Button className="mt-4 w-full py-2 bg-[#222] rounded-md hover:bg-[#333] font-semibold">
             Edit Profile
-          </button>
+          </Button>
         </div>
 
         {/* Suggested for you */}
@@ -289,9 +249,9 @@ const Home = () => {
                 <p className="font-semibold">{full_name}</p>
                 <p className="text-gray-400 text-sm">@{username}</p>
               </div>
-              <button className="py-1 px-3 border border-green-500 rounded-md text-green-500 hover:bg-green-500 hover:text-black transition">
+              <Button className="py-1 px-3 border border-green-500 rounded-md text-green-500 hover:bg-green-500 hover:text-black transition">
                 Follow
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -313,6 +273,4 @@ const Home = () => {
     </div>
   );
 };
-
 export default Home;
-
