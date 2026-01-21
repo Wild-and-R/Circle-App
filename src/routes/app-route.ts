@@ -18,10 +18,10 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 
 // Thread Routes
-router.get("/threads", authenticate,getThreads);
+router.get("/threads", authenticate, getThreads);
 router.post("/thread", authenticate, upload.single("image"), createThread);
 
-router.get("/thread/:id", getThreadById);
+router.get("/thread/:id", authenticate, getThreadById);
 router.put("/thread/:id", authenticate, upload.single("image"), updateThread);
 router.delete("/thread/:id", authenticate, deleteThread);
 

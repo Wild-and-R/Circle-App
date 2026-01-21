@@ -1,27 +1,27 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../connections/client";
 import AppError from "../utils/app-error";
+import { enqueueThreadForProcessing } from "../queues/thread.queue";
+import { sendThreadNotification } from "../websocket/websocket";
 
-// Create Thread
-export async function createThread(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+// Create thread
+export async function createThread(req: Request, res: Response, next: NextFunction) {
   try {
     const { content } = req.body;
     const userId = res.locals.currentUser.id;
 
-    if (!content || content.trim() === "") {
-      return next(new AppError("Thread content is required", 400));
+    if (!content || !content.trim() || content.length > 500) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid thread content",
+      });
     }
 
-    // multer file (optional)
     const image = req.file ? req.file.filename : null;
 
     const thread = await prisma.thread.create({
       data: {
-        content,
+        content: content.trim(),
         image,
         created_by: userId,
       },
@@ -34,17 +34,45 @@ export async function createThread(
             photo_profile: true,
           },
         },
+        _count: {
+          select: {
+            likes: true,
+            replies: true,
+          },
+        },
       },
     });
 
-    res.status(201).json({
+    enqueueThreadForProcessing({
+      id: thread.id,
+      user_id: userId,
+      content: thread.content,
+      image: thread.image,
+    });
+
+    sendThreadNotification({
+      id: thread.id,
+      author: thread.author,
+      content: thread.content,
+      image: thread.image,
+      likes: 0,
+      replies: 0,
+      likedByMe: false,
+      createdAt: thread.created_at,
+    });
+
+    return res.status(201).json({
       status: "success",
-      data: { thread },
+      message: "Thread created successfully",
+      data: thread,
     });
   } catch (error) {
     next(error);
   }
 }
+
+
+
 
 // Get all threads with pagination
 export async function getThreads(req: Request, res: Response, next: NextFunction) {

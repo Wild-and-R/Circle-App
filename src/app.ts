@@ -1,14 +1,19 @@
 import express from "express";
 import dotenv from "dotenv";
 import path from "path";
+import http from "http";
+
 import appRoutes from "./routes/app-route";
 import { corsMiddleware } from "./middlewares/cors";
 import AppError from "./utils/app-error";
 
+import { initSocket } from "./websocket/websocket";
+import { processMessageQueue } from "./workers/thread.workers";
+
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Middleware
 app.use(corsMiddleware);
@@ -23,11 +28,10 @@ app.use(
 // Routes
 app.use("/api/v1", appRoutes);
 
-// Catch-all handler (SAFE)
+// Catch-all handler
 app.use((req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
 });
-
 
 // Global error handler
 app.use(
@@ -47,6 +51,16 @@ app.use(
   }
 );
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// HTTP + WebSocket Server
+const server = http.createServer(app);
+
+// Initialize WebSocket (Socket.IO)
+initSocket(server);
+
+// Start background worker (message queue)
+processMessageQueue();
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
