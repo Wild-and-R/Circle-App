@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { toast } from "sonner";
 
 import ThreadCard from "@/components/ThreadCard";
 import type { Thread } from "@/components/ThreadCard";
@@ -8,6 +7,8 @@ import MainComposer from "@/components/MainComposer";
 
 import { api } from "@/services/api";
 import { socket } from "@/services/websocket";
+import { useAppDispatch } from "@/store/hooks";
+import { setInitialLikes } from "@/store/likeSlice";
 
 type OutletContext = {
   openCreatePost: () => void;
@@ -15,16 +16,23 @@ type OutletContext = {
 
 const Home = () => {
   const { openCreatePost } = useOutletContext<OutletContext>();
+  const dispatch = useAppDispatch();
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch threads
   const fetchThreads = async () => {
     try {
       setLoading(true);
       const res = await api.get<Thread[]>("/threads");
+
       setThreads(res.data);
+
+      const likedIds = res.data
+        .filter((t) => t.likedByMe)
+        .map((t) => t.id);
+
+      dispatch(setInitialLikes(likedIds));
     } finally {
       setLoading(false);
     }
@@ -46,31 +54,8 @@ const Home = () => {
     };
   }, []);
 
-  // Like
-  const toggleLike = async (id: number) => {
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              likedByMe: !t.likedByMe,
-              likes: t.likedByMe ? t.likes - 1 : t.likes + 1,
-            }
-          : t
-      )
-    );
-
-    try {
-      await api.post(`/threads/${id}/like`);
-    } catch {
-      toast.error("Failed to like thread");
-      fetchThreads();
-    }
-  };
-
   return (
     <>
-      {/* Top Header + Main Composer */}
       <div className="border-b border-[#2a2a2a] pb-3 mb-4">
         <h2 className="text-lg font-semibold mb-2">Home</h2>
         <MainComposer onOpen={openCreatePost} />
@@ -78,7 +63,6 @@ const Home = () => {
 
       {loading && <p className="text-gray-400">Loading threads...</p>}
 
-      {/* Feed */}
       <section className="flex flex-col gap-6">
         {!loading &&
           threads.map((thread) => (
@@ -86,7 +70,6 @@ const Home = () => {
               key={thread.id}
               thread={thread}
               clickable
-              onLike={toggleLike}
             />
           ))}
       </section>

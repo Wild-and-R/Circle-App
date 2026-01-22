@@ -1,6 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  toggleLikeLocal,
+  toggleLikeThread
+} from "@/store/likeSlice";
 
 export interface Thread {
   id: number;
@@ -19,16 +24,28 @@ export interface Thread {
 
 interface ThreadCardProps {
   thread: Thread;
-  onLike: (id: number) => void;
   clickable?: boolean;
 }
 
-const ThreadCard = ({
-  thread,
-  onLike,
-  clickable = false,
-}: ThreadCardProps) => {
+const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  const liked = useAppSelector(
+    (state) => state.likes.likedThreads[thread.id]
+  );
+
+  const handleLike = (e: React.MouseEvent) => {
+  e.stopPropagation();
+
+  // optimistic update
+  dispatch(toggleLikeLocal(thread.id));
+
+  // backend handles like/unlike
+  dispatch(toggleLikeThread(thread.id));
+};
+
+
 
   const handleClick = () => {
     if (clickable) {
@@ -48,12 +65,17 @@ const ThreadCard = ({
     >
       <header className="flex items-center gap-4 mb-2">
         <img
-          src={
-            thread.author.photo_profile ||
-            "https://randomuser.me/api/portraits/lego/1.jpg"
-          }
-          className="w-12 h-12 rounded-full"
-        />
+  src={
+    thread.author.photo_profile
+      ? `http://localhost:3000/uploads/${thread.author.photo_profile}`
+      : "https://randomuser.me/api/portraits/lego/1.jpg"
+  }
+  onError={(e) => {
+    (e.target as HTMLImageElement).src =
+      "https://randomuser.me/api/portraits/lego/1.jpg";
+  }}
+  className="w-12 h-12 rounded-full"
+/>
 
         <div>
           <p className="font-semibold text-white">
@@ -80,21 +102,17 @@ const ThreadCard = ({
 
       <footer className="mt-4 flex gap-6 text-gray-400">
         <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onLike(thread.id);
-          }}
+          onClick={handleLike}
           className={`flex items-center gap-2 transition-colors ${
-            thread.likedByMe
+            liked
               ? "text-red-500"
               : "text-gray-400 hover:text-red-500"
           }`}
         >
-          {/* Heart icon */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
-            fill={thread.likedByMe ? "currentColor" : "none"}
+            fill={liked ? "currentColor" : "none"}
             stroke="currentColor"
             strokeWidth={2}
             className="w-5 h-5"
@@ -106,7 +124,7 @@ const ThreadCard = ({
             />
           </svg>
 
-          <span>{thread.likes}</span>
+          <span>{thread.likes + (liked ? 1 : 0)}</span>
         </Button>
 
         <span>🗨️ {thread.replies} Replies</span>
