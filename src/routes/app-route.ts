@@ -7,6 +7,12 @@ import {
   updateThread,
   deleteThread,
 } from "../controllers/thread";
+import {
+  createReply,
+  getRepliesByThread,
+  updateReply,
+  deleteReply,
+} from "../controllers/reply";
 import { toggleLikeThread } from "../controllers/like";
 import { authenticate } from "../middlewares/auth";
 import { upload } from "../utils/multer";
@@ -32,6 +38,33 @@ router.post(
   "/threads/:id/like",
   authenticate,
   toggleLikeThread
+);
+
+// Replies
+router.post(
+  "/thread/:id/replies",
+  authenticate,
+  upload.single("image"),
+  createReply
+);
+
+router.get(
+  "/thread/:id/replies",
+  authenticate,
+  getRepliesByThread
+);
+
+router.put(
+  "/replies/:id",
+  authenticate,
+  upload.single("image"),
+  updateReply
+);
+
+router.delete(
+  "/replies/:id",
+  authenticate,
+  deleteReply
 );
 
 export default router;
