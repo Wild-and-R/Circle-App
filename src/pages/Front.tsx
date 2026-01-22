@@ -13,8 +13,8 @@ const Front = () => {
       const { toastMessage, toastType } = location.state;
 
       // Display the appropriate toast type using shadcn/sonner's toast function
-      if (toastType === 'success') {
-        toast.success(toastMessage);
+      if (toastType === 'error') {
+        toast.error(toastMessage);
       } else {
         toast(toastMessage); // Default toast
       }
