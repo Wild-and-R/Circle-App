@@ -5,26 +5,29 @@ import Register from "./pages/Register";
 import Front from "./pages/Front";
 import Thread from "./pages/Thread";
 import { PrivateRoute } from "./components/PrivateRoute";
+import PrivateLayout from "./layouts/PrivateLayout";
 import { Toaster } from "@/components/ui/sonner";
 
 const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
+        {/* Public */}
         <Route path="/" element={<Front />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Private routes */}
+        {/* Private */}
         <Route element={<PrivateRoute />}>
-          <Route path="/home" element={<Home />} />
-          <Route path="/thread/:id" element={<Thread />} />
+          <Route element={<PrivateLayout />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/thread/:id" element={<Thread />} />
+          </Route>
         </Route>
 
-        {/* fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+
       <Toaster />
     </BrowserRouter>
   );
