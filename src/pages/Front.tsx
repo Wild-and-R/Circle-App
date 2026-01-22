@@ -1,7 +1,25 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useEffect } from "react";
+
 
 const Front = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check if there is a toast message in the location state
+    if (location.state?.toastMessage) {
+      const { toastMessage, toastType } = location.state;
+
+      // Display the appropriate toast type using shadcn/sonner's toast function
+      if (toastType === 'success') {
+        toast.success(toastMessage);
+      } else {
+        toast(toastMessage); // Default toast
+      }
+    }
+  }, [location.state]);
     return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] gap-6  bg-[#121212]">
       <h1 className="text-green-500 text-3xl font-bold">circle</h1>
