@@ -1,9 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./authSlice";
+import likeReducer from "./likeSlice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    likes: likeReducer,
   },
 });
 
