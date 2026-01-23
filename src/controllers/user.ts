@@ -10,39 +10,21 @@ export async function updateUserProfile(
 ) {
   try {
     const userId = res.locals.currentUser.id;
-    const { username, bio } = req.body;
+    const { full_name, bio } = req.body;
     const profileImage = req.file ? req.file.filename : undefined;
 
-    // OR conditions for unique checks
-    const orConditions: any[] = [];
-    if (username) orConditions.push({ username });
-
-    if (orConditions.length > 0) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: orConditions,
-          NOT: { id: userId }, // exclude current user
-        },
-      });
-
-      if (existingUser) {
-        return next(new AppError("Username or email already taken", 400));
-      }
-    }
-
-    // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        username: username || undefined,
+        full_name: full_name || undefined,
         bio: bio || undefined,
         photo_profile: profileImage || undefined,
       },
       select: {
         id: true,
         username: true,
-        full_name: true,
         email: true,
+        full_name: true,
         bio: true,
         photo_profile: true,
         created_at: true,
