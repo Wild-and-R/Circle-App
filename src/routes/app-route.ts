@@ -13,8 +13,15 @@ import {
   updateReply,
   deleteReply,
 } from "../controllers/reply";
+import {
+  getFollowing,
+  getFollowers,
+  followUser,
+  unfollowUser,
+  getSuggestedUsers,
+} from "../controllers/follow";
 import { toggleLikeThread } from "../controllers/like";
-import { updateUserProfile, getCurrentUserProfile } from "../controllers/user";
+import { updateUserProfile, getCurrentUserProfile, getMyFollowStats } from "../controllers/user";
 import { authenticate } from "../middlewares/auth";
 import { upload } from "../utils/multer";
 
@@ -70,4 +77,22 @@ router.delete(
 // User
 router.put("/user/profile/me", authenticate, upload.single("photo_profile"), updateUserProfile)
 router.get("/user/profile/me", authenticate, getCurrentUserProfile)
+router.get("/users/me/stats", authenticate, getMyFollowStats);
+
+
+// Get list of users that user is following
+router.get("/follows/:userId/following", authenticate, getFollowing);
+
+// Get list of followers for a user
+router.get("/follows/:userId/followers", authenticate, getFollowers);
+
+// Follow a user
+router.post("/follows/:userId/follow", authenticate, followUser);
+
+// Unfollow a user
+router.delete("/follows/:userId/unfollow", authenticate, unfollowUser);
+
+//suggested users to follow
+router.get("/users/suggested", authenticate, getSuggestedUsers);
+
 export default router;

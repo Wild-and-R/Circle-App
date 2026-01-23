@@ -77,3 +77,33 @@ export async function getCurrentUserProfile(
     next(err);
   }
 }
+
+//Get follow stats
+export async function getMyFollowStats(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = res.locals.currentUser.id;
+
+    const [followers, following] = await Promise.all([
+      prisma.following.count({
+        where: { following_id: userId },
+      }),
+      prisma.following.count({
+        where: { follower_id: userId },
+      }),
+    ]);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        followers,
+        following,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
