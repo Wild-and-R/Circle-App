@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Front from "./pages/Front";
 import Thread from "./pages/Thread";
+import Follow from "./pages/Follow";
 import { PrivateRoute } from "./components/PrivateRoute";
 import PrivateLayout from "./layouts/PrivateLayout";
 import { Toaster } from "@/components/ui/sonner";
@@ -22,6 +23,7 @@ const App = () => {
           <Route element={<PrivateLayout />}>
             <Route path="/home" element={<Home />} />
             <Route path="/thread/:id" element={<Thread />} />
+            <Route path="/follows" element={<Follow />} />
           </Route>
         </Route>
 

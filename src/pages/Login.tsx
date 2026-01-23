@@ -67,11 +67,11 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label className="text-muted-foreground text-xs">
-                Email / Username *
+                Email *
               </Label>
               <Input
                 className="bg-[#121212] border-[#2a2a2a] text-white focus:border-green-500"
-                placeholder="Email or Username"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

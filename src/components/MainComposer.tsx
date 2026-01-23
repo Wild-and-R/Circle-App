@@ -1,14 +1,25 @@
 import { Button } from "@/components/ui/button";
+import { useAppSelector } from "@/store/hooks";
 
 interface MainComposerProps {
   onOpen: () => void;
 }
 
 const MainComposer = ({ onOpen }: MainComposerProps) => {
+  const user = useAppSelector((state) => state.auth.user);
+
   return (
     <div className="flex items-center gap-4 py-3">
       <img
-        src="https://randomuser.me/api/portraits/lego/1.jpg"
+        src={
+          user?.photo_profile
+            ? `http://localhost:3000/uploads/${user.photo_profile}`
+            : "https://randomuser.me/api/portraits/lego/1.jpg"
+        }
+        onError={(e) => {
+          (e.target as HTMLImageElement).src =
+            "https://randomuser.me/api/portraits/lego/1.jpg";
+        }}
         className="w-10 h-10 rounded-full"
       />
 

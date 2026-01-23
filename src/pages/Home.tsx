@@ -6,8 +6,9 @@ import type { Thread } from "@/components/ThreadCard";
 import MainComposer from "@/components/MainComposer";
 
 import { api } from "@/services/api";
-import { socket } from "@/services/websocket";
-import { useAppDispatch } from "@/store/hooks";
+import { connectSocket } from "@/services/websocket";
+
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setInitialLikes } from "@/store/likeSlice";
 
 type OutletContext = {
@@ -17,6 +18,7 @@ type OutletContext = {
 const Home = () => {
   const { openCreatePost } = useOutletContext<OutletContext>();
   const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,10 @@ const Home = () => {
   useEffect(() => {
     fetchThreads();
 
+    if (!user?.id) return;
+
+    const socket = connectSocket(user.id);
+
     socket.on("thread:new", (newThread: Thread) => {
       setThreads((prev) =>
         prev.some((t) => t.id === newThread.id)
@@ -52,7 +58,7 @@ const Home = () => {
     return () => {
       socket.off("thread:new");
     };
-  }, []);
+  }, [user?.id]);
 
   return (
     <>
