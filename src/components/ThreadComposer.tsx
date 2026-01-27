@@ -24,26 +24,32 @@ const ThreadComposer = memo(
     onCancelImage,
   }: ThreadComposerProps) => {
     return (
-      <div className="flex flex-col gap-3">
-        <Textarea
-          placeholder="What is happening?!"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="
-            bg-transparent
-            border-none
-            resize-none
-            text-white
-            placeholder:text-gray-500
-            text-lg
-            focus-visible:ring-0
-            focus-visible:ring-offset-0
-            min-h-[120px]
-          "
-        />
+      <div className="flex flex-col gap-4 w-full">
 
+        {/* Text box */}
+        <div className="w-full border border-zinc-700 rounded-xl p-4 bg-black/40">
+          <Textarea
+            placeholder="What is happening?!"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="
+              w-full
+              bg-transparent
+              border-none
+              resize-none
+              text-white
+              placeholder:text-gray-500
+              text-lg
+              focus-visible:ring-0
+              focus-visible:ring-offset-0
+              min-h-[120px]
+            "
+          />
+        </div>
+
+        {/* Image preview */}
         {preview && (
-          <div className="relative w-fit">
+          <div className="relative w-full max-w-lg border border-zinc-700 rounded-xl p-2 bg-black/40">
             <img
               src={preview}
               className="rounded-lg max-h-64 object-cover"
@@ -52,7 +58,7 @@ const ThreadComposer = memo(
             <button
               type="button"
               onClick={onCancelImage}
-              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
               title="Remove image"
             >
               ✕
@@ -60,7 +66,8 @@ const ThreadComposer = memo(
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        {/* Actions */}
+        <div className="flex items-center w-full gap-4">
           <label className="cursor-pointer text-green-500 flex items-center gap-2">
             <ImagePlus size={20} />
             <span className="text-sm">Image</span>
@@ -75,7 +82,7 @@ const ThreadComposer = memo(
           <Button
             disabled={posting}
             onClick={onSubmit}
-            className="bg-green-500 text-black rounded-full px-6"
+            className="ml-auto bg-green-500 text-black rounded-full px-6"
           >
             {posting ? "Posting..." : "Post"}
           </Button>
@@ -86,5 +93,4 @@ const ThreadComposer = memo(
 );
 
 ThreadComposer.displayName = "ThreadComposer";
-
 export default ThreadComposer;

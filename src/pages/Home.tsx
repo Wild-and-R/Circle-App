@@ -27,7 +27,6 @@ const Home = () => {
     try {
       setLoading(true);
       const res = await api.get<Thread[]>("/threads");
-
       setThreads(res.data);
 
       dispatch(
@@ -50,7 +49,6 @@ const Home = () => {
     if (!user?.id) return;
 
     const socket = connectSocket(user.id);
-
     socket.on("thread:new", (newThread: Thread) => {
       setThreads((prev) =>
         prev.some((t) => t.id === newThread.id)
@@ -65,7 +63,7 @@ const Home = () => {
   }, [user?.id]);
 
   return (
-    <>
+    <div className="flex flex-col h-full overflow-y-auto pr-1">
       <div className="border-b border-[#2a2a2a] pb-3 mb-4">
         <h2 className="text-lg font-semibold mb-2">Home</h2>
         <MainComposer onOpen={openCreatePost} />
@@ -79,7 +77,7 @@ const Home = () => {
             <ThreadCard key={thread.id} thread={thread} clickable />
           ))}
       </section>
-    </>
+    </div>
   );
 };
 

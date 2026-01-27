@@ -96,16 +96,23 @@ const Search = () => {
   const sock = connectSocket(currentUser.id);
 
   sock.on(
-    "follow:changed",
-    (payload: { actionUserId: number; isFollowing: boolean; followersDelta?: number; followingDelta?: number }) => {
-      // Update Search results (isFollowing)
-      setResults((prev) =>
-        prev.map((u) =>
-          u.id === payload.actionUserId ? { ...u, isFollowing: payload.isFollowing } : u
-        )
-      );
-    }
-  );
+  "follow:changed",
+  (payload: {
+    currentUserId: number;
+    actionUserId: number;
+    isFollowing: boolean;
+    followersDelta?: number;
+    followingDelta?: number;
+  }) => {
+    // Update Search results if any affected
+    setResults((prev) =>
+      prev.map((u) =>
+        u.id === payload.actionUserId ? { ...u, isFollowing: payload.isFollowing } : u
+      )
+    );
+  }
+);
+
 
   return () => {
     sock.off("follow:changed");

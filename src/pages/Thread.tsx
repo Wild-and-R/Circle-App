@@ -32,7 +32,6 @@ const ThreadDetail = () => {
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Replies
   const [replies, setReplies] = useState<Reply[]>([]);
   const [newReply, setNewReply] = useState("");
   const [replyImage, setReplyImage] = useState<File | null>(null);
@@ -74,19 +73,16 @@ const ThreadDetail = () => {
 
   // Fetch replies
   const fetchReplies = async () => {
-    try {
-      const res = await api.get(`/thread/${threadId}/replies`);
-      const data = res.data.data.replies.map((r: any) => ({
+    const res = await api.get(`/thread/${threadId}/replies`);
+    setReplies(
+      res.data.data.replies.map((r: any) => ({
         id: r.id,
         content: r.content,
         image: r.image,
         createdAt: r.created_at,
         user: r.user,
-      }));
-      setReplies(data);
-    } catch (err) {
-      console.error("Failed to fetch replies", err);
-    }
+      }))
+    );
   };
 
   useEffect(() => {
@@ -94,7 +90,7 @@ const ThreadDetail = () => {
     fetchReplies();
   }, [threadId]);
 
-  // Auto-expand textarea
+  // Auto grow textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -113,13 +109,9 @@ const ThreadDetail = () => {
       formData.append("content", newReply);
       if (replyImage) formData.append("image", replyImage);
 
-      const res = await api.post(
-        `/thread/${threadId}/replies`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
+      const res = await api.post(`/thread/${threadId}/replies`, formData);
       const r = res.data.data.reply;
+
       setReplies((prev) => [
         ...prev,
         {
@@ -134,8 +126,6 @@ const ThreadDetail = () => {
       setNewReply("");
       setReplyImage(null);
       toast.success("Reply posted");
-    } catch (err) {
-      console.error("Failed to create reply", err);
     } finally {
       setReplyLoading(false);
     }
@@ -145,38 +135,51 @@ const ThreadDetail = () => {
   if (!thread) return <p className="text-red-500">Thread not found</p>;
 
   return (
-    <div className="relative max-w-2xl mx-auto mt-6 pb-36">
-      {/* Thread */}
-      <ThreadCard thread={thread} />
+    <div className="flex flex-col h-full overflow-y-auto px-4 py-6">
+      {/* Back Button */}
+      <header className="flex items-center gap-2 mb-4 text-white text-lg font-semibold">
+        <span
+          onClick={() => window.history.back()}
+          className="text-2xl cursor-pointer"
+        >
+          ←
+        </span>
+        <span>Thread</span>
+      </header>
 
-      {/* Replies */}
-      <div className="space-y-4">
+      {/* Thread content */}
+      <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+        <ThreadCard thread={thread} />
+
+        {/* Replies */}
         {replies.map((r) => (
-          <div key={r.id} className="flex space-x-3">
+          <div
+            key={r.id}
+            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 flex gap-3"
+          >
             <img
               src={
                 r.user.photo_profile
                   ? `http://localhost:3000/uploads/${r.user.photo_profile}`
                   : "https://randomuser.me/api/portraits/lego/1.jpg"
               }
-              alt={r.user.username}
               className="w-10 h-10 rounded-full"
             />
-            <div>
-              <p className="font-semibold text-white">
-                {r.user.full_name || r.user.username}{" "}
-                <span className="text-gray-400">
-                  @{r.user.username}
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-white">
+                  {r.user.full_name || r.user.username}
                 </span>
-              </p>
-              <p className="text-sm text-gray-400">
-                {new Date(r.createdAt).toLocaleString()}
-              </p>
-              <p>{r.content}</p>
+                <span className="text-gray-400 text-sm">@{r.user.username}</span>
+                <span className="text-gray-500 text-xs">
+                  · {new Date(r.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <p className="mt-1 text-white">{r.content}</p>
               {r.image && (
                 <img
                   src={`http://localhost:3000/uploads/${r.image}`}
-                  className="mt-2 rounded max-w-full"
+                  className="mt-3 rounded-lg max-h-64 object-cover"
                 />
               )}
             </div>
@@ -184,41 +187,40 @@ const ThreadDetail = () => {
         ))}
       </div>
 
-      {/* Reply Composer */}
-      <div
-        className="fixed bottom-0 w-[calc(100%-16rem-18rem)] max-w-2xl
-        bg-black border-t border-gray-800 p-4 flex flex-col space-y-2
-        z-50 left-[calc(16rem)]"
-      >
-        <textarea
-          ref={textareaRef}
-          className="w-full border rounded p-2 resize-none overflow-hidden bg-background text-foreground border-border"
-          placeholder="Write a reply..."
-          value={newReply}
-          onChange={(e) => setNewReply(e.target.value)}
-        />
+      {/* Composer */}
+      <div className="mt-4 border-t border-[#2a2a2a] p-4">
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3">
+          <textarea
+            ref={textareaRef}
+            placeholder="Write a reply..."
+            value={newReply}
+            onChange={(e) => setNewReply(e.target.value)}
+            className="
+              w-full bg-transparent resize-none border-none
+              text-white placeholder:text-gray-500
+              focus:outline-none min-h-[60px]
+            "
+          />
+        </div>
 
         {replyImage && (
-          <div className="relative">
+          <div className="relative border border-[#2a2a2a] rounded-xl p-2 w-fit mt-2">
             <img
               src={URL.createObjectURL(replyImage)}
-              className="max-h-48 w-full object-cover rounded"
+              className="rounded-lg max-h-48 object-cover"
             />
             <button
-              onClick={() => {
-                setReplyImage(null);
-                toast.info("Image removed");
-              }}
-              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6"
+              onClick={() => setReplyImage(null)}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs"
             >
               ✕
             </button>
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center mt-2">
           <label className="cursor-pointer text-green-500 flex items-center gap-2">
-            <ImagePlus size={20} />
+            <ImagePlus size={18} />
             <span className="text-sm">Image</span>
             <input
               type="file"
@@ -228,15 +230,14 @@ const ThreadDetail = () => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 setReplyImage(file);
-                toast.success("Image added");
               }}
             />
           </label>
 
           <button
-            className="bg-black text-white px-4 py-2 rounded border border-gray-700 disabled:opacity-50 hover:bg-gray-800"
             disabled={replyLoading || (!newReply.trim() && !replyImage)}
             onClick={handleReply}
+            className="ml-auto bg-green-500 text-black px-6 py-2 rounded-full disabled:opacity-50"
           >
             {replyLoading ? "Posting..." : "Reply"}
           </button>

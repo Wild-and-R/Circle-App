@@ -115,7 +115,7 @@ const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
 </Button>
 
 
-        <span>🗨️ {thread.replies} Replies</span>
+        <span className='flex items-center gap-2'>🗨️ {thread.replies} Replies</span>
       </footer>
     </Card>
   );

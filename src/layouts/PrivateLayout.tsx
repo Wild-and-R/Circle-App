@@ -89,7 +89,7 @@ const PrivateLayout = () => {
       <div className="flex h-screen bg-[#121212] text-white overflow-hidden">
         <LeftSidebar onCreatePost={openCreatePost} />
 
-        <main className="flex-1 max-w-2xl px-6 py-4 overflow-y-auto">
+        <main className="relative flex-1 max-w-2xl px-6 py-4 flex flex-col h-screen">
           <Outlet context={{ openCreatePost }} />
         </main>
 

@@ -83,12 +83,6 @@ const Login = () => {
                 <Label className="text-muted-foreground text-xs">
                   Password *
                 </Label>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-green-500"
-                >
-                  Forgot password?
-                </button>
               </div>
 
               <Input

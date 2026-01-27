@@ -29,13 +29,12 @@ const MyProfile = () => {
   const [openEdit, setOpenEdit] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
-
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchProfilePostsAndStats = async () => {
+    const fetchProfile = async () => {
       setLoading(true);
       try {
         const statsRes = await api.get("/users/me/stats");
@@ -72,14 +71,14 @@ const MyProfile = () => {
       }
     };
 
-    fetchProfilePostsAndStats();
+    fetchProfile();
 
     const sock = connectSocket(user.id);
     sock.on(
       "follow:changed",
       (payload: { followersDelta: number; followingDelta: number }) => {
-        setFollowersCount((prev) => prev + payload.followersDelta);
-        setFollowingCount((prev) => prev + payload.followingDelta);
+        setFollowersCount((p) => p + payload.followersDelta);
+        setFollowingCount((p) => p + payload.followingDelta);
       }
     );
 
@@ -90,150 +89,148 @@ const MyProfile = () => {
   }, [user?.id, dispatch]);
 
   if (loading || !user) {
-    return (
-      <div className="text-center pt-20 text-gray-400">
-        Loading profile...
-      </div>
-    );
+    return <div className="text-center pt-20 text-gray-400">Loading...</div>;
   }
 
   const filteredPosts =
     activeTab === "media"
-      ? posts.filter((p) => p.image_url && p.image_url.trim() !== "")
+      ? posts.filter((p) => p.image_url)
       : posts;
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-6">
-      {/* Header */}
-      <header className="flex items-center gap-2 mb-4 text-white text-lg font-semibold">
-        <span
-          onClick={() => window.history.back()}
-          className="text-2xl cursor-pointer"
-        >
-          ←
-        </span>
-        <span>{user.full_name || user.username}</span>
-      </header>
+    <div className="flex flex-col h-full overflow-y-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto w-full">
 
-      {/* Profile Info */}
-      <div className="flex flex-col items-center gap-2 mb-8">
-        <img
-          src={
-            user.photo_profile
-              ? `http://localhost:3000/uploads/${user.photo_profile}`
-              : "https://randomuser.me/api/portraits/lego/1.jpg"
-          }
-          className="w-20 h-20 rounded-full object-cover"
-        />
+        {/* Header */}
+        <header className="flex items-center gap-2 mb-4 text-white text-lg font-semibold">
+          <span
+            onClick={() => window.history.back()}
+            className="text-2xl cursor-pointer"
+          >
+            ←
+          </span>
+          <span>{user.full_name || user.username}</span>
+        </header>
 
-        <h3 className="font-semibold text-lg text-white">
-          {user.full_name || user.username}
-        </h3>
-        <p className="text-gray-400">@{user.username}</p>
+        {/* Profile Info */}
+        <div className="flex flex-col items-center gap-2 mb-8">
+          <img
+            src={
+              user.photo_profile
+                ? `http://localhost:3000/uploads/${user.photo_profile}`
+                : "https://randomuser.me/api/portraits/lego/1.jpg"
+            }
+            className="w-20 h-20 rounded-full"
+          />
 
-        {user.bio && (
-          <p className="text-sm text-gray-300 text-center max-w-md">
-            {user.bio}
-          </p>
+          <h3 className="font-semibold text-lg">
+            {user.full_name || user.username}
+          </h3>
+          <p className="text-gray-400">@{user.username}</p>
+
+          {user.bio && (
+            <p className="text-sm text-gray-300 text-center max-w-md">
+              {user.bio}
+            </p>
+          )}
+
+          <div className="flex gap-8 mt-4 text-sm text-gray-400 font-semibold">
+            <div>
+              <span className="block text-white">{followingCount}</span>
+              Following
+            </div>
+            <div>
+              <span className="block text-white">{followersCount}</span>
+              Followers
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            className="mt-6 text-sm"
+            onClick={() => setOpenEdit(true)}
+          >
+            Edit Profile
+          </Button>
+        </div>
+
+        {/* Tabs */}
+        <nav className="border-b border-gray-700 flex gap-8 mb-6">
+          {["all", "media"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`pb-2 font-semibold ${
+                activeTab === tab
+                  ? "text-white border-b-2 border-green-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {tab === "all" ? "All Posts" : "Media"}
+            </button>
+          ))}
+        </nav>
+
+        {/* Posts */}
+        {activeTab === "all" ? (
+          <section className="space-y-6">
+            {filteredPosts.map((post) => (
+              <ThreadCard
+                key={post.id}
+                thread={{
+                  id: post.id,
+                  author: {
+                    username: user.username,
+                    full_name: user.full_name,
+                    photo_profile: user.photo_profile ?? undefined,
+                  },
+                  content: post.content,
+                  image: post.image_url,
+                  likes: post.likes_count,
+                  replies: post.replies_count,
+                  likedByMe: post.likedByMe,
+                  createdAt: post.created_at,
+                }}
+                clickable
+              />
+            ))}
+          </section>
+        ) : (
+          <section className="grid grid-cols-3 gap-2">
+            {filteredPosts.map((post) => (
+              <img
+                key={post.id}
+                src={`http://localhost:3000/uploads/${post.image_url}`}
+                className="w-full h-32 object-cover rounded cursor-pointer"
+                onClick={() =>
+                  setSelectedImage(
+                    `http://localhost:3000/uploads/${post.image_url}`
+                  )
+                }
+              />
+            ))}
+          </section>
         )}
 
-        <div className="flex gap-8 mt-4 text-sm text-gray-400 font-semibold">
-          <div className="text-center">
-            <span className="block text-white">{followingCount}</span>
-            Following
-          </div>
-          <div className="text-center">
-            <span className="block text-white">{followersCount}</span>
-            Followers
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          className="mt-6 text-sm"
-          onClick={() => setOpenEdit(true)}
-        >
-          Edit Profile
-        </Button>
-      </div>
-
-      {/* Tabs */}
-      <nav className="border-b border-gray-700 flex gap-8 mb-6">
-        {["all", "media"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`pb-2 font-semibold ${
-              activeTab === tab
-                ? "text-white border-b-2 border-green-500"
-                : "text-gray-400 hover:text-white"
-            }`}
+        {selectedImage && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+            onClick={() => setSelectedImage(null)}
           >
-            {tab === "all" ? "All Posts" : "Media"}
-          </button>
-        ))}
-      </nav>
-
-      {/* Posts */}
-      {activeTab === "all" ? (
-        <section className="space-y-6">
-          {filteredPosts.map((post) => (
-            <ThreadCard
-              key={post.id}
-              thread={{
-                id: post.id,
-                author: {
-                  username: user.username,
-                  full_name: user.full_name,
-                  photo_profile: user.photo_profile ?? undefined,
-                },
-                content: post.content,
-                image: post.image_url,
-                likes: post.likes_count,
-                replies: post.replies_count,
-                likedByMe: post.likedByMe,
-                createdAt: post.created_at,
-              }}
-              clickable
-            />
-          ))}
-        </section>
-      ) : (
-        <section className="grid grid-cols-3 gap-2">
-          {filteredPosts.map((post) => (
             <img
-              key={post.id}
-              src={`http://localhost:3000/uploads/${post.image_url}`}
-              className="w-full h-32 object-cover rounded cursor-pointer"
-              onClick={() =>
-                setSelectedImage(
-                  `http://localhost:3000/uploads/${post.image_url}`
-                )
-              }
+              src={selectedImage}
+              className="max-h-[90%] max-w-[90%] rounded"
             />
-          ))}
-        </section>
-      )}
+          </div>
+        )}
 
-      {selectedImage && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-          onClick={() => setSelectedImage(null)}
-        >
-          <img
-            src={selectedImage}
-            className="max-h-[90%] max-w-[90%] rounded"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-
-      <EditProfileDialog
-        open={openEdit}
-        onOpenChange={setOpenEdit}
-        user={user}
-      />
-    </main>
+        <EditProfileDialog
+          open={openEdit}
+          onOpenChange={setOpenEdit}
+          user={user}
+        />
+      </div>
+    </div>
   );
 };
 

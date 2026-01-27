@@ -24,8 +24,10 @@ const RightSidebar = () => {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
+  // Keep track of IDs you are currently following
   const [followingIds, setFollowingIds] = useState<number[]>([]);
 
+  // Helper to check if user is followed
   const isFollowing = useCallback(
     (userId: number) => followingIds.includes(userId),
     [followingIds]
@@ -51,7 +53,10 @@ const RightSidebar = () => {
         const res = await api.get("/users/me/stats");
         setFollowersCount(res.data.data.followers);
         setFollowingCount(res.data.data.following);
-        setFollowingIds(res.data.data.followingIds || []);
+
+        // Set initial following IDs from suggested users
+        const following = res.data.data.followingIds || [];
+        setFollowingIds(following);
       } catch {
         toast.error("Failed to load follow stats");
       }
@@ -60,15 +65,14 @@ const RightSidebar = () => {
     fetchSuggested();
     fetchFollowStats();
 
+    // Connect Socket.IO
     const sock = connectSocket(user.id);
 
-    sock.on(
-      "follow:changed",
-      (payload: { followersDelta: number; followingDelta: number }) => {
-        setFollowersCount((prev) => prev + payload.followersDelta);
-        setFollowingCount((prev) => prev + payload.followingDelta);
-      }
-    );
+    // Listen for follow/unfollow updates
+    sock.on("follow:changed", (payload: { followersDelta: number; followingDelta: number }) => {
+      setFollowersCount((prev) => prev + payload.followersDelta);
+      setFollowingCount((prev) => prev + payload.followingDelta);
+    });
 
     return () => {
       sock.off("follow:changed");
@@ -76,9 +80,11 @@ const RightSidebar = () => {
     };
   }, [user]);
 
-  // Optimistic follow: remove local count update
+  // Optimistic follow
   const handleFollow = async (userId: number) => {
+    // Optimistic update
     setSuggested((prev) => prev.filter((u) => u.id !== userId));
+    setFollowingCount((prev) => prev + 1);
     setFollowingIds((prev) => [...prev, userId]);
 
     try {
@@ -86,28 +92,32 @@ const RightSidebar = () => {
       toast.success("Followed");
     } catch {
       // rollback
-      const rollbackUser = suggested.find((u) => u.id === userId);
-      if (rollbackUser) setSuggested((prev) => [...prev, rollbackUser]);
+      setSuggested((prev) => [...prev, suggested.find((u) => u.id === userId)!]);
+      setFollowingCount((prev) => prev - 1);
       setFollowingIds((prev) => prev.filter((id) => id !== userId));
       toast.error("Failed to follow user");
     }
   };
 
-  // Optimistic unfollow: remove local count update
+  // Optimistic unfollow
   const handleUnfollow = async (userId: number) => {
+    // Optimistic update
+    setFollowingCount((prev) => prev - 1);
     setFollowingIds((prev) => prev.filter((id) => id !== userId));
 
     try {
       await api.delete(`/follows/${userId}/unfollow`);
       toast.success("Unfollowed");
 
-      // Optionally add back to suggested list
-      const exists = suggested.find((u) => u.id === userId);
-      if (!exists) {
+      // Optionally, add back to suggested list if not already present
+      const userObj = suggested.find((u) => u.id === userId);
+      if (!userObj) {
         const res = await api.get(`/users/${userId}`);
         setSuggested((prev) => [res.data.data.user, ...prev]);
       }
     } catch {
+      // rollback
+      setFollowingCount((prev) => prev + 1);
       setFollowingIds((prev) => [...prev, userId]);
       toast.error("Failed to unfollow user");
     }
