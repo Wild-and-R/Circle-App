@@ -107,3 +107,76 @@ export async function getMyFollowStats(
     next(err);
   }
 }
+
+// Search users by username or full_name
+export async function searchUsers(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const q = (req.query.q as string)?.trim();
+    const currentUserId = res.locals.currentUser.id;
+
+    if (!q) {
+      return res.status(200).json({
+        status: "success",
+        data: { users: [] },
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [
+          {
+            username: {
+              contains: q,
+              mode: "insensitive",
+            },
+          },
+          {
+            full_name: {
+              contains: q,
+              mode: "insensitive",
+            },
+          },
+        ],
+        NOT: {
+          id: currentUserId, // don't show yourself
+        },
+      },
+      select: {
+        id: true,
+        username: true,
+        full_name: true,
+        bio: true,
+        photo_profile: true,
+        followers: {
+          where: {
+            follower_id: currentUserId,
+          },
+          select: { id: true },
+        },
+      },
+      take: 10,
+    });
+
+    const formattedUsers = users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      full_name: u.full_name,
+      bio: u.bio,
+      photo_profile: u.photo_profile,
+      isFollowing: u.followers.length > 0,
+    }));
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        users: formattedUsers,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
