@@ -103,9 +103,9 @@ const Register = () => {
                 Email *
               </Label>
               <Input
-                type="email (There is no changing email)"
+                type="email"
                 className="bg-[#121212] border-[#2a2a2a] text-white focus:border-green-500"
-                placeholder="Email"
+                placeholder="Email (There is no changing email)"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
