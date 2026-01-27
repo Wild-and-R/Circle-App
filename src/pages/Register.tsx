@@ -79,7 +79,7 @@ const Register = () => {
               </Label>
               <Input
                 className="bg-[#121212] border-[#2a2a2a] text-white focus:border-green-500"
-                placeholder="Username"
+                placeholder="Username (There is no changing username)"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -103,7 +103,7 @@ const Register = () => {
                 Email *
               </Label>
               <Input
-                type="email"
+                type="email (There is no changing email)"
                 className="bg-[#121212] border-[#2a2a2a] text-white focus:border-green-500"
                 placeholder="Email"
                 value={email}
