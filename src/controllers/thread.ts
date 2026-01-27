@@ -40,6 +40,12 @@ import redisClient from "../utils/redis";
  *         - likedByMe
  */
 
+const MY_POSTS_CACHE_VERSION = "v1";
+
+// Helper for consistent cache key
+const getMyPostsCacheKey = (userId: number) =>
+  `user:${userId}:posts:${MY_POSTS_CACHE_VERSION}`;
+
 /**
  * @swagger
  * /posts/me:
@@ -69,41 +75,51 @@ import redisClient from "../utils/redis";
  *       500:
  *         description: Internal server error
  */
-export async function getMyPosts(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function getMyPosts(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = res.locals.currentUser.id;
-    const cacheKey = `user:${userId}:posts`;
+    const cacheKey = getMyPostsCacheKey(userId);
 
-    // Try Redis cache first
-    const cached = await redisClient.get(cacheKey);
-    if (cached) {
-      return res.status(200).json(JSON.parse(cached));
+    let cached: string | null = null;
+    try {
+      if (redisClient.isOpen) cached = await redisClient.get(cacheKey);
+    } catch (err) {
+      console.error("Redis get error:", err);
     }
 
-    // If not cached, query DB
+    if (cached) {
+      try {
+        return res.status(200).json(JSON.parse(cached));
+      } catch {
+        if (redisClient.isOpen) await redisClient.del(cacheKey);
+      }
+    }
+
     const posts = await prisma.thread.findMany({
       where: { created_by: userId },
       orderBy: { created_at: "desc" },
-      include: {
-        _count: {
-          select: { likes: true, replies: true },
-        },
-      },
+      include: { _count: { select: { likes: true, replies: true } } },
     });
+
+    const normalizedPosts = posts.map((p) => ({
+      id: p.id,
+      content: p.content,
+      image: p.image,
+      created_at: p.created_at,
+      likes_count: p._count.likes,
+      replies_count: p._count.replies,
+    }));
 
     const response = {
       status: "success",
-      data: { posts },
+      data: { posts: normalizedPosts },
     };
 
-    // Cache in Redis for 60 seconds
-    await redisClient.set(cacheKey, JSON.stringify(response), {
-      EX: 60,
-    });
+    try {
+      if (redisClient.isOpen) await redisClient.set(cacheKey, JSON.stringify(response), { EX: 60 });
+    } catch (err) {
+      console.error("Redis set error:", err);
+    }
 
     res.status(200).json(response);
   } catch (err) {
@@ -155,30 +171,21 @@ export async function createThread(req: Request, res: Response, next: NextFuncti
     const userId = res.locals.currentUser.id;
 
     if (!content || !content.trim() || content.length > 500) {
-      return res.status(400).json({
-        status: "error",
-        message: "Invalid thread content",
-      });
+      return res.status(400).json({ status: "error", message: "Invalid thread content" });
     }
 
     const image = req.file ? req.file.filename : null;
 
     const thread = await prisma.thread.create({
-      data: {
-        content: content.trim(),
-        image,
-        created_by: userId,
-      },
+      data: { content: content.trim(), image, created_by: userId },
       include: {
-        author: {
-          select: { id: true, username: true, full_name: true, photo_profile: true },
-        },
+        author: { select: { id: true, username: true, full_name: true, photo_profile: true } },
         _count: { select: { likes: true, replies: true } },
       },
     });
 
-    // Invalidate user posts cache
-    await redisClient.del(`user:${userId}:posts`);
+    // Invalidate cache
+    if (redisClient.isOpen) await redisClient.del(getMyPostsCacheKey(userId));
 
     enqueueThreadForProcessing({
       id: thread.id,
@@ -198,11 +205,7 @@ export async function createThread(req: Request, res: Response, next: NextFuncti
       createdAt: thread.created_at,
     });
 
-    return res.status(201).json({
-      status: "success",
-      message: "Thread created successfully",
-      data: thread,
-    });
+    return res.status(201).json({ status: "success", message: "Thread created successfully", data: thread });
   } catch (error) {
     next(error);
   }
@@ -301,11 +304,7 @@ export async function getThreadById(req: Request, res: Response, next: NextFunct
     res.status(200).json({
       status: "success",
       data: {
-        thread: {
-          ...thread,
-          likedByMe: currentUserId ? thread.likes.length > 0 : false,
-          likes: undefined,
-        },
+        thread: { ...thread, likedByMe: currentUserId ? thread.likes.length > 0 : false, likes: undefined },
       },
     });
   } catch (error) {
@@ -324,13 +323,10 @@ export async function updateThread(req: Request, res: Response, next: NextFuncti
     if (thread.created_by !== userId) return next(new AppError("Forbidden", 403));
 
     const image = req.file ? req.file.filename : thread.image;
-    const updatedThread = await prisma.thread.update({
-      where: { id: threadId },
-      data: { content: content ?? thread.content, image },
-    });
+    const updatedThread = await prisma.thread.update({ where: { id: threadId }, data: { content: content ?? thread.content, image } });
 
     // Invalidate cache
-    await redisClient.del(`user:${userId}:posts`);
+    if (redisClient.isOpen) await redisClient.del(getMyPostsCacheKey(userId));
 
     res.status(200).json({ status: "success", data: { thread: updatedThread } });
   } catch (error) {
@@ -350,7 +346,7 @@ export async function deleteThread(req: Request, res: Response, next: NextFuncti
     await prisma.thread.delete({ where: { id: threadId } });
 
     // Invalidate cache
-    await redisClient.del(`user:${userId}:posts`);
+    if (redisClient.isOpen) await redisClient.del(getMyPostsCacheKey(userId));
 
     res.status(204).json({ status: "success", data: null });
   } catch (error) {

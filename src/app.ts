@@ -9,6 +9,7 @@ import AppError from "./utils/app-error";
 
 import { initSocket } from "./websocket/websocket";
 import { processMessageQueue } from "./workers/thread.workers";
+import { connectRedis } from "./utils/redis";
 import { setupSwagger } from "./utils/swagger";
 
 dotenv.config();
@@ -65,7 +66,17 @@ initSocket(server);
 processMessageQueue();
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
-});
+(async () => {
+  try {
+    await connectRedis();
+    console.log("Redis connected");
+
+    server.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (err) {
+    console.error("Failed to connect Redis", err);
+    process.exit(1);
+  }
+})();

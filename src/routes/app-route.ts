@@ -26,7 +26,6 @@ import { updateUserProfile, getCurrentUserProfile, getMyFollowStats, searchUsers
 import { authenticate } from "../middlewares/auth";
 import { upload } from "../utils/multer";
 
-
 const router = express.Router();
 
 // Auth Routes
