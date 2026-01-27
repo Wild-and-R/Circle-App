@@ -18,11 +18,16 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "prisma": "^6.19.2",
-    "socket.io": "^4.8.3"
+    "redis": "^5.10.0",
+    "socket.io": "^4.8.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
-    "@types/multer": "^2.0.0"
+    "@types/multer": "^2.0.0",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8"
   }
 }

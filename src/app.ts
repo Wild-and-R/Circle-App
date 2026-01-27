@@ -9,6 +9,7 @@ import AppError from "./utils/app-error";
 
 import { initSocket } from "./websocket/websocket";
 import { processMessageQueue } from "./workers/thread.workers";
+import { setupSwagger } from "./utils/swagger";
 
 dotenv.config();
 
@@ -24,6 +25,9 @@ app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
 );
+
+// Swagger setup
+setupSwagger(app);
 
 // Routes
 app.use("/api/v1", appRoutes);
@@ -63,4 +67,5 @@ processMessageQueue();
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
 });

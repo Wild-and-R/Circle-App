@@ -3,8 +3,152 @@ import { prisma } from "../connections/client";
 import AppError from "../utils/app-error";
 import { enqueueThreadForProcessing } from "../queues/thread.queue";
 import { sendThreadNotification } from "../websocket/websocket";
+import redisClient from "../utils/redis";
 
-// Create thread
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Thread:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         content:
+ *           type: string
+ *         image:
+ *           type: string
+ *           nullable: true
+ *         created_by:
+ *           type: integer
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         likes:
+ *           type: integer
+ *         replies:
+ *           type: integer
+ *         likedByMe:
+ *           type: boolean
+ *       required:
+ *         - id
+ *         - content
+ *         - created_by
+ *         - created_at
+ *         - likes
+ *         - replies
+ *         - likedByMe
+ */
+
+/**
+ * @swagger
+ * /posts/me:
+ *   get:
+ *     summary: Get all posts of the current logged-in user
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of user posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     posts:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Thread'
+ *       500:
+ *         description: Internal server error
+ */
+export async function getMyPosts(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = res.locals.currentUser.id;
+    const cacheKey = `user:${userId}:posts`;
+
+    // Try Redis cache first
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+
+    // If not cached, query DB
+    const posts = await prisma.thread.findMany({
+      where: { created_by: userId },
+      orderBy: { created_at: "desc" },
+      include: {
+        _count: {
+          select: { likes: true, replies: true },
+        },
+      },
+    });
+
+    const response = {
+      status: "success",
+      data: { posts },
+    };
+
+    // Cache in Redis for 60 seconds
+    await redisClient.set(cacheKey, JSON.stringify(response), {
+      EX: 60,
+    });
+
+    res.status(200).json(response);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @swagger
+ * /thread:
+ *   post:
+ *     summary: Create a new thread (post)
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *             required:
+ *               - content
+ *     responses:
+ *       201:
+ *         description: Thread created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Thread'
+ *       400:
+ *         description: Invalid thread content
+ */
 export async function createThread(req: Request, res: Response, next: NextFunction) {
   try {
     const { content } = req.body;
@@ -27,21 +171,14 @@ export async function createThread(req: Request, res: Response, next: NextFuncti
       },
       include: {
         author: {
-          select: {
-            id: true,
-            username: true,
-            full_name: true,
-            photo_profile: true,
-          },
+          select: { id: true, username: true, full_name: true, photo_profile: true },
         },
-        _count: {
-          select: {
-            likes: true,
-            replies: true,
-          },
-        },
+        _count: { select: { likes: true, replies: true } },
       },
     });
+
+    // Invalidate user posts cache
+    await redisClient.del(`user:${userId}:posts`);
 
     enqueueThreadForProcessing({
       id: thread.id,
@@ -71,38 +208,40 @@ export async function createThread(req: Request, res: Response, next: NextFuncti
   }
 }
 
-
-
-
-// Get all threads with pagination
+/**
+ * @swagger
+ * /threads:
+ *   get:
+ *     summary: Get all threads (with pagination)
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 25
+ *         description: Maximum number of threads to return
+ *     responses:
+ *       200:
+ *         description: List of threads
+ */
 export async function getThreads(req: Request, res: Response, next: NextFunction) {
   try {
     const limit = parseInt(req.query.limit as string) || 25;
-    const currentUserId = res.locals.currentUser?.id; // set in authenticate middleware
+    const currentUserId = res.locals.currentUser?.id;
 
     const threads = await prisma.thread.findMany({
       take: limit,
       orderBy: { created_at: "desc" },
       include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            full_name: true,
-            photo_profile: true,
-          },
-        },
-        _count: {
-          select: {
-            likes: true,
-            replies: true,
-          },
-        },
+        author: { select: { id: true, username: true, full_name: true, photo_profile: true } },
+        _count: { select: { likes: true, replies: true } },
         likes: currentUserId ? { where: { user_id: currentUserId } } : false,
       },
     });
 
-    // Format likedByMe
     const formatted = threads.map((t) => ({
       id: t.id,
       author: t.author,
@@ -120,14 +259,26 @@ export async function getThreads(req: Request, res: Response, next: NextFunction
   }
 }
 
-
-
-// Get Thread by ID
-export async function getThreadById(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+/**
+ * @swagger
+ * /thread/{id}:
+ *   get:
+ *     summary: Get thread by ID
+ *     tags: [Threads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Thread ID
+ *     responses:
+ *       200:
+ *         description: Thread detail
+ */
+export async function getThreadById(req: Request, res: Response, next: NextFunction) {
   try {
     const threadId = Number(req.params.id);
     const currentUserId = res.locals.currentUser?.id;
@@ -135,44 +286,17 @@ export async function getThreadById(
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
       include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            full_name: true,
-            photo_profile: true,
-          },
-        },
-        likes: currentUserId
-          ? {
-              where: { user_id: currentUserId },
-              select: { id: true },
-            }
-          : false,
+        author: { select: { id: true, username: true, full_name: true, photo_profile: true } },
+        likes: currentUserId ? { where: { user_id: currentUserId }, select: { id: true } } : false,
         replies: {
           orderBy: { created_at: "asc" },
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                photo_profile: true,
-              },
-            },
-          },
+          include: { user: { select: { id: true, username: true, photo_profile: true } } },
         },
-        _count: {
-          select: {
-            replies: true,
-            likes: true,
-          },
-        },
+        _count: { select: { replies: true, likes: true } },
       },
     });
 
-    if (!thread) {
-      return next(new AppError("Thread not found", 404));
-    }
+    if (!thread) return next(new AppError("Thread not found", 404));
 
     res.status(200).json({
       status: "success",
@@ -180,7 +304,7 @@ export async function getThreadById(
         thread: {
           ...thread,
           likedByMe: currentUserId ? thread.likes.length > 0 : false,
-          likes: undefined, // remove internal likes array
+          likes: undefined,
         },
       },
     });
@@ -189,79 +313,46 @@ export async function getThreadById(
   }
 }
 
-
-// Update Thread (Owner Only)
-export async function updateThread(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function updateThread(req: Request, res: Response, next: NextFunction) {
   try {
     const threadId = Number(req.params.id);
     const userId = res.locals.currentUser.id;
     const { content } = req.body;
 
-    const thread = await prisma.thread.findUnique({
-      where: { id: threadId },
-    });
-
-    if (!thread) {
-      return next(new AppError("Thread not found", 404));
-    }
-
-    if (thread.created_by !== userId) {
-      return next(new AppError("You are not allowed to update this thread", 403));
-    }
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread) return next(new AppError("Thread not found", 404));
+    if (thread.created_by !== userId) return next(new AppError("Forbidden", 403));
 
     const image = req.file ? req.file.filename : thread.image;
-
     const updatedThread = await prisma.thread.update({
       where: { id: threadId },
-      data: {
-        content: content ?? thread.content,
-        image,
-      },
+      data: { content: content ?? thread.content, image },
     });
 
-    res.status(200).json({
-      status: "success",
-      data: { thread: updatedThread },
-    });
+    // Invalidate cache
+    await redisClient.del(`user:${userId}:posts`);
+
+    res.status(200).json({ status: "success", data: { thread: updatedThread } });
   } catch (error) {
     next(error);
   }
 }
 
-// Delete Thread (Owner only)
-export async function deleteThread(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function deleteThread(req: Request, res: Response, next: NextFunction) {
   try {
     const threadId = Number(req.params.id);
     const userId = res.locals.currentUser.id;
 
-    const thread = await prisma.thread.findUnique({
-      where: { id: threadId },
-    });
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread) return next(new AppError("Thread not found", 404));
+    if (thread.created_by !== userId) return next(new AppError("Forbidden", 403));
 
-    if (!thread) {
-      return next(new AppError("Thread not found", 404));
-    }
+    await prisma.thread.delete({ where: { id: threadId } });
 
-    if (thread.created_by !== userId) {
-      return next(new AppError("You are not allowed to delete this thread", 403));
-    }
+    // Invalidate cache
+    await redisClient.del(`user:${userId}:posts`);
 
-    await prisma.thread.delete({
-      where: { id: threadId },
-    });
-
-    res.status(204).json({
-      status: "success",
-      data: null,
-    });
+    res.status(204).json({ status: "success", data: null });
   } catch (error) {
     next(error);
   }
