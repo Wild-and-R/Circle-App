@@ -5,6 +5,8 @@ import Register from "./pages/Register";
 import Front from "./pages/Front";
 import Thread from "./pages/Thread";
 import Follow from "./pages/Follow";
+import Search from "./pages/Search";
+import MyProfile from "./pages/MyProfile";
 import { PrivateRoute } from "./components/PrivateRoute";
 import PrivateLayout from "./layouts/PrivateLayout";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,6 +26,8 @@ const App = () => {
             <Route path="/home" element={<Home />} />
             <Route path="/thread/:id" element={<Thread />} />
             <Route path="/follows" element={<Follow />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/myprofile" element={<MyProfile />} />
           </Route>
         </Route>
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAppSelector } from "@/store/hooks";
+import { connectSocket } from "@/services/websocket";
 
 interface User {
   id: number;
@@ -13,11 +15,13 @@ interface User {
 }
 
 const Search = () => {
+  const currentUser = useAppSelector((state) => state.auth.user);
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [followLoadingIds, setFollowLoadingIds] = useState<number[]>([]);
 
-  // Debounced search
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -29,7 +33,11 @@ const Search = () => {
         setLoading(true);
 
         const res = await api.get(`/users/search?q=${query}`);
-        setResults(res.data.data.users);
+        const users: User[] = res.data.data.users.map((u: any) => ({
+          ...u,
+          isFollowing: !!u.isFollowing,
+        }));
+        setResults(users);
       } catch {
         toast.error("Failed to search users");
       } finally {
@@ -41,32 +49,70 @@ const Search = () => {
   }, [query]);
 
   const handleFollow = async (userId: number) => {
+    if (followLoadingIds.includes(userId)) return;
+
+    setFollowLoadingIds((ids) => [...ids, userId]);
+    setResults((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, isFollowing: true } : u))
+    );
+
     try {
       await api.post(`/follows/${userId}/follow`);
-      setResults((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, isFollowing: true } : u
-        )
-      );
       toast.success("Followed");
     } catch {
+      setResults((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isFollowing: false } : u))
+      );
       toast.error("Failed to follow user");
+    } finally {
+      setFollowLoadingIds((ids) => ids.filter((id) => id !== userId));
     }
   };
 
   const handleUnfollow = async (userId: number) => {
+    if (followLoadingIds.includes(userId)) return;
+
+    setFollowLoadingIds((ids) => [...ids, userId]);
+    setResults((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, isFollowing: false } : u))
+    );
+
     try {
       await api.delete(`/follows/${userId}/unfollow`);
-      setResults((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, isFollowing: false } : u
-        )
-      );
       toast.success("Unfollowed");
     } catch {
+      setResults((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isFollowing: true } : u))
+      );
       toast.error("Failed to unfollow user");
+    } finally {
+      setFollowLoadingIds((ids) => ids.filter((id) => id !== userId));
     }
   };
+
+  useEffect(() => {
+  if (!currentUser) return;
+
+  const sock = connectSocket(currentUser.id);
+
+  sock.on(
+    "follow:changed",
+    (payload: { actionUserId: number; isFollowing: boolean; followersDelta?: number; followingDelta?: number }) => {
+      // Update Search results (isFollowing)
+      setResults((prev) =>
+        prev.map((u) =>
+          u.id === payload.actionUserId ? { ...u, isFollowing: payload.isFollowing } : u
+        )
+      );
+    }
+  );
+
+  return () => {
+    sock.off("follow:changed");
+  };
+}, [currentUser]);
+
+
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -93,14 +139,10 @@ const Search = () => {
 
       {/* Results */}
       <div className="mt-4 space-y-3">
-        {loading && (
-          <p className="text-gray-400 text-center">Searching...</p>
-        )}
+        {loading && <p className="text-gray-400 text-center">Searching...</p>}
 
         {!loading && results.length === 0 && query && (
-          <p className="text-gray-400 text-center">
-            No users found
-          </p>
+          <p className="text-gray-400 text-center">No users found</p>
         )}
 
         {results.map((user) => (
@@ -147,22 +189,23 @@ const Search = () => {
               </div>
             </div>
 
-            {user.isFollowing ? (
-              <Button
-                onClick={() => handleUnfollow(user.id)}
-                className="border border-gray-500 text-gray-300 hover:bg-red-600 hover:text-white"
-                variant="ghost"
-              >
-                Following
-              </Button>
-            ) : (
-              <Button
-                onClick={() => handleFollow(user.id)}
-                className="bg-green-500 text-black hover:bg-green-600"
-              >
-                Follow
-              </Button>
-            )}
+            <Button
+              onClick={() =>
+                user.isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)
+              }
+              disabled={followLoadingIds.includes(user.id)}
+              className={`w-24 text-sm ${
+                user.isFollowing
+                  ? "bg-gray-700 hover:bg-gray-600"
+                  : "bg-green-500 hover:bg-green-600 text-black"
+              }`}
+            >
+              {followLoadingIds.includes(user.id)
+                ? "..."
+                : user.isFollowing
+                ? "Following"
+                : "Follow"}
+            </Button>
           </div>
         ))}
       </div>
