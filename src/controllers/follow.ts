@@ -83,15 +83,16 @@ export async function followUser(req: Request, res: Response, next: NextFunction
       return next(new AppError("Already following this user", 400));
     }
 
-    // Follow a user
-await prisma.following.create({
-  data: { follower_id: userId, following_id: targetUserId },
-});
+    await prisma.following.create({
+      data: {
+        follower_id: userId,
+        following_id: targetUserId,
+      },
+    });
 
-// Emit real-time follow counts AND follow state
-sendFollowUpdate(userId, 0, 1, targetUserId, true);       // current user gained following
-sendFollowUpdate(targetUserId, 1, 0, userId, true);       // target user gained follower
-
+    // Emit real-time follow counts
+    sendFollowUpdate(userId, 0, 1); // you gained +1 following
+    sendFollowUpdate(targetUserId, 1, 0); // target gained +1 follower
 
     res.status(201).json({ status: "success" });
   } catch (err) {
@@ -118,14 +119,18 @@ export async function unfollowUser(req: Request, res: Response, next: NextFuncti
       return next(new AppError("You are not following this user", 400));
     }
 
-    // Unfollow a user
-await prisma.following.delete({
-  where: { follower_id_following_id: { follower_id: userId, following_id: targetUserId } },
-});
+    await prisma.following.delete({
+      where: {
+        follower_id_following_id: {
+          follower_id: userId,
+          following_id: targetUserId,
+        },
+      },
+    });
 
-// Emit real-time follow counts AND follow state
-sendFollowUpdate(userId, 0, -1, targetUserId, false);    // current user lost following
-sendFollowUpdate(targetUserId, -1, 0, userId, false);    // target user lost follower
+    // Emit real-time follow counts
+    sendFollowUpdate(userId, 0, -1); // you lost 1 following
+    sendFollowUpdate(targetUserId, -1, 0); // target lost 1 follower
 
     res.status(204).json({ status: "success" });
   } catch (err) {

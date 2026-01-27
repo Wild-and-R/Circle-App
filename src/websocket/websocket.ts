@@ -34,19 +34,12 @@ export function sendThreadNotification(thread: any) {
   io.to("global").emit("thread:new", thread);
 }
 
-export function sendFollowUpdate(
-  userId: number,
-  followersDelta: number,
-  followingDelta: number,
-  actionUserId: number, 
-  isFollowing: boolean 
-) {
+export function sendFollowUpdate(userId: number, followersDelta: number, followingDelta: number) {
   if (!io) return;
 
+  // Emit to the affected user
   io.to(`user:${userId}`).emit("follow:changed", {
     followersDelta,
     followingDelta,
-    actionUserId,
-    isFollowing,
   });
 }
