@@ -24,9 +24,9 @@ const LeftSidebar = ({ onCreatePost }: LeftSidebarProps) => {
       <nav className="flex flex-col gap-4">
         {[
           { label: "Home", icon: "🏠︎", path: "/home" },
-          { label: "Search", icon: "🔍︎" },
+          { label: "Search", icon: "🔍︎", path: "/search" },
           { label: "Follows", icon: "❤︎", path: "/follows" },
-          { label: "Profile", icon: "👤" },
+          { label: "Profile", icon: "👤", path: "/myprofile" },
         ].map(({ label, icon, path }) => (
           <Button
             key={label}
