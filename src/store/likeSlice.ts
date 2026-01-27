@@ -1,12 +1,17 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "@/services/api";
 
+interface LikeEntry {
+  liked: boolean;
+  count: number;
+}
+
 interface LikeState {
-  likedThreads: Record<number, boolean>;
+  threads: Record<number, LikeEntry>;
 }
 
 const initialState: LikeState = {
-  likedThreads: {},
+  threads: {},
 };
 
 export const toggleLikeThread = createAsyncThunk(
@@ -21,26 +26,62 @@ const likeSlice = createSlice({
   name: "likes",
   initialState,
   reducers: {
-    toggleLikeLocal: (state, action) => {
-      const id = action.payload;
-      state.likedThreads[id] = !state.likedThreads[id];
+    hydrateLikes: (
+      state,
+      action: {
+        payload: {
+          id: number;
+          likedByMe: boolean;
+          likes: number;
+        }[];
+      }
+    ) => {
+      action.payload.forEach((t) => {
+        const existing = state.threads[t.id];
+
+        if (!existing) {
+          state.threads[t.id] = {
+            liked: t.likedByMe,
+            count: t.likes,
+          };
+          return;
+        }
+
+        state.threads[t.id] = {
+          liked: existing.liked || t.likedByMe,
+          count: Math.max(existing.count, t.likes),
+        };
+      });
     },
 
-    setInitialLikes: (state, action) => {
-      action.payload.forEach((id: number) => {
-        state.likedThreads[id] = true;
-      });
+    toggleLikeOptimistic: (state, action) => {
+      const id = action.payload;
+      const entry = state.threads[id];
+
+      if (!entry) return;
+
+      entry.liked = !entry.liked;
+      entry.count += entry.liked ? 1 : -1;
     },
   },
 
   extraReducers: (builder) => {
     builder.addCase(toggleLikeThread.rejected, (state, action) => {
       const id = action.meta.arg;
-      // rollback
-      state.likedThreads[id] = !state.likedThreads[id];
+      const entry = state.threads[id];
+
+      if (!entry) return;
+
+      // Rollback optimistic update
+      entry.liked = !entry.liked;
+      entry.count += entry.liked ? 1 : -1;
     });
   },
 });
 
-export const { toggleLikeLocal, setInitialLikes } = likeSlice.actions;
+export const {
+  hydrateLikes,
+  toggleLikeOptimistic,
+} = likeSlice.actions;
+
 export default likeSlice.reducer;

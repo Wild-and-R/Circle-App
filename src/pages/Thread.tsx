@@ -8,8 +8,7 @@ import type { Thread } from "@/components/ThreadCard";
 import { api } from "@/services/api";
 
 import { useAppDispatch } from "@/store/hooks";
-import { setInitialLikes } from "@/store/likeSlice";
-
+import { hydrateLikes } from "@/store/likeSlice";
 
 interface Reply {
   id: number;
@@ -59,10 +58,15 @@ const ThreadDetail = () => {
         createdAt: t.created_at,
       });
 
-      // sync initial like to redux
-      if (t.likedByMe) {
-        dispatch(setInitialLikes([t.id]));
-      }
+      dispatch(
+        hydrateLikes([
+          {
+            id: t.id,
+            likedByMe: t.likedByMe,
+            likes: t._count?.likes || 0,
+          },
+        ])
+      );
     } finally {
       setLoading(false);
     }
@@ -151,8 +155,9 @@ const ThreadDetail = () => {
           <div key={r.id} className="flex space-x-3">
             <img
               src={
-                r.user.photo_profile ? `http://localhost:3000/uploads/${r.user.photo_profile}`
-      : "https://randomuser.me/api/portraits/lego/1.jpg"
+                r.user.photo_profile
+                  ? `http://localhost:3000/uploads/${r.user.photo_profile}`
+                  : "https://randomuser.me/api/portraits/lego/1.jpg"
               }
               alt={r.user.username}
               className="w-10 h-10 rounded-full"
@@ -180,10 +185,14 @@ const ThreadDetail = () => {
       </div>
 
       {/* Reply Composer */}
-      <div className="fixed bottom-0 w-[calc(100%-16rem-18rem)] max-w-2xl bg-gray-900 border-t border-gray-700 p-4 flex flex-col space-y-2 z-50 left-[calc(16rem)]">
+      <div
+        className="fixed bottom-0 w-[calc(100%-16rem-18rem)] max-w-2xl
+        bg-black border-t border-gray-800 p-4 flex flex-col space-y-2
+        z-50 left-[calc(16rem)]"
+      >
         <textarea
           ref={textareaRef}
-          className="w-full border rounded p-2 resize-none overflow-hidden"
+          className="w-full border rounded p-2 resize-none overflow-hidden bg-background text-foreground border-border"
           placeholder="Write a reply..."
           value={newReply}
           onChange={(e) => setNewReply(e.target.value)}
@@ -225,10 +234,8 @@ const ThreadDetail = () => {
           </label>
 
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
-            disabled={
-              replyLoading || (!newReply.trim() && !replyImage)
-            }
+            className="bg-black text-white px-4 py-2 rounded border border-gray-700 disabled:opacity-50 hover:bg-gray-800"
+            disabled={replyLoading || (!newReply.trim() && !replyImage)}
             onClick={handleReply}
           >
             {replyLoading ? "Posting..." : "Reply"}

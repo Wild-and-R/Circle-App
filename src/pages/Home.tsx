@@ -9,7 +9,7 @@ import { api } from "@/services/api";
 import { connectSocket } from "@/services/websocket";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setInitialLikes } from "@/store/likeSlice";
+import { hydrateLikes } from "@/store/likeSlice";
 
 type OutletContext = {
   openCreatePost: () => void;
@@ -30,11 +30,15 @@ const Home = () => {
 
       setThreads(res.data);
 
-      const likedIds = res.data
-        .filter((t) => t.likedByMe)
-        .map((t) => t.id);
-
-      dispatch(setInitialLikes(likedIds));
+      dispatch(
+        hydrateLikes(
+          res.data.map((t) => ({
+            id: t.id,
+            likedByMe: t.likedByMe,
+            likes: t.likes,
+          }))
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -72,11 +76,7 @@ const Home = () => {
       <section className="flex flex-col gap-6">
         {!loading &&
           threads.map((thread) => (
-            <ThreadCard
-              key={thread.id}
-              thread={thread}
-              clickable
-            />
+            <ThreadCard key={thread.id} thread={thread} clickable />
           ))}
       </section>
     </>

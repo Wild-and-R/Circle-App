@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  toggleLikeLocal,
-  toggleLikeThread
+  toggleLikeOptimistic,
+  toggleLikeThread,
 } from "@/store/likeSlice";
 
 export interface Thread {
@@ -31,21 +31,18 @@ const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const liked = useAppSelector(
-    (state) => state.likes.likedThreads[thread.id]
+  const entry = useAppSelector(
+    (state) => state.likes.threads[thread.id]
   );
 
+  const liked = entry?.liked ?? thread.likedByMe;
+  const likesCount = entry?.count ?? thread.likes;
+
   const handleLike = (e: React.MouseEvent) => {
-  e.stopPropagation();
-
-  // optimistic update
-  dispatch(toggleLikeLocal(thread.id));
-
-  // backend handles like/unlike
-  dispatch(toggleLikeThread(thread.id));
-};
-
-
+    e.stopPropagation();
+    dispatch(toggleLikeOptimistic(thread.id));
+    dispatch(toggleLikeThread(thread.id));
+  };
 
   const handleClick = () => {
     if (clickable) {
@@ -56,26 +53,19 @@ const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
   return (
     <Card
       onClick={handleClick}
-      className={`
-        bg-[#1a1a1a]
-        p-4
-        border-[#2a2a2a]
-        ${clickable ? "cursor-pointer hover:bg-[#222]" : ""}
-      `}
+      className={`bg-[#1a1a1a] p-4 border-[#2a2a2a] ${
+        clickable ? "cursor-pointer hover:bg-[#222]" : ""
+      }`}
     >
       <header className="flex items-center gap-4 mb-2">
         <img
-  src={
-    thread.author.photo_profile
-      ? `http://localhost:3000/uploads/${thread.author.photo_profile}`
-      : "https://randomuser.me/api/portraits/lego/1.jpg"
-  }
-  onError={(e) => {
-    (e.target as HTMLImageElement).src =
-      "https://randomuser.me/api/portraits/lego/1.jpg";
-  }}
-  className="w-12 h-12 rounded-full"
-/>
+          src={
+            thread.author.photo_profile
+              ? `http://localhost:3000/uploads/${thread.author.photo_profile}`
+              : "https://randomuser.me/api/portraits/lego/1.jpg"
+          }
+          className="w-12 h-12 rounded-full"
+        />
 
         <div>
           <p className="font-semibold text-white">
@@ -84,7 +74,6 @@ const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
               @{thread.author.username}
             </span>
           </p>
-
           <p className="text-sm text-gray-400">
             {new Date(thread.createdAt).toLocaleString()}
           </p>
@@ -102,30 +91,29 @@ const ThreadCard = ({ thread, clickable = false }: ThreadCardProps) => {
 
       <footer className="mt-4 flex gap-6 text-gray-400">
         <Button
-          onClick={handleLike}
-          className={`flex items-center gap-2 transition-colors ${
-            liked
-              ? "text-red-500"
-              : "text-gray-400 hover:text-red-500"
-          }`}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill={liked ? "currentColor" : "none"}
-            stroke="currentColor"
-            strokeWidth={2}
-            className="w-5 h-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-            />
-          </svg>
+  onClick={handleLike}
+  className={`flex items-center gap-2 transition-colors ${
+    liked ? "text-red-500" : "text-gray-400 hover:text-red-500"
+  }`}
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill={liked ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={2}
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+    />
+  </svg>
 
-          <span>{thread.likes + (liked ? 1 : 0)}</span>
-        </Button>
+  <span>{likesCount}</span>
+</Button>
+
 
         <span>🗨️ {thread.replies} Replies</span>
       </footer>
