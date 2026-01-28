@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/store/hooks";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import EditProfileDialog from "./EditProfileDialog";
 import { api } from "@/services/api";
 import { toast } from "sonner";
@@ -24,55 +24,45 @@ const RightSidebar = () => {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
-  // Keep track of IDs you are currently following
-  const [followingIds, setFollowingIds] = useState<number[]>([]);
+  const fetchSuggested = async () => {
+    setLoadingSuggested(true);
+    try {
+      const res = await api.get("/users/suggested");
+      setSuggested(res.data.data);
+    } catch {
+      toast.error("Failed to load suggested users");
+    } finally {
+      setLoadingSuggested(false);
+    }
+  };
 
-  // Helper to check if user is followed
-  const isFollowing = useCallback(
-    (userId: number) => followingIds.includes(userId),
-    [followingIds]
-  );
+  const fetchFollowStats = async () => {
+    try {
+      const res = await api.get("/users/me/stats");
+      setFollowersCount(res.data.data.followers);
+      setFollowingCount(res.data.data.following);
+    } catch {
+      toast.error("Failed to load follow stats");
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchSuggested = async () => {
-      setLoadingSuggested(true);
-      try {
-        const res = await api.get("/users/suggested");
-        setSuggested(res.data.data);
-      } catch {
-        toast.error("Failed to load suggested users");
-      } finally {
-        setLoadingSuggested(false);
-      }
-    };
-
-    const fetchFollowStats = async () => {
-      try {
-        const res = await api.get("/users/me/stats");
-        setFollowersCount(res.data.data.followers);
-        setFollowingCount(res.data.data.following);
-
-        // Set initial following IDs from suggested users
-        const following = res.data.data.followingIds || [];
-        setFollowingIds(following);
-      } catch {
-        toast.error("Failed to load follow stats");
-      }
-    };
-
     fetchSuggested();
     fetchFollowStats();
 
-    // Connect Socket.IO
     const sock = connectSocket(user.id);
 
-    // Listen for follow/unfollow updates
-    sock.on("follow:changed", (payload: { followersDelta: number; followingDelta: number }) => {
-      setFollowersCount((prev) => prev + payload.followersDelta);
-      setFollowingCount((prev) => prev + payload.followingDelta);
-    });
+    sock.on(
+      "follow:changed",
+      (payload: { followersDelta: number; followingDelta: number }) => {
+        setFollowersCount((prev) => Math.max(0, prev + payload.followersDelta));
+        setFollowingCount((prev) => Math.max(0, prev + payload.followingDelta));
+
+        fetchSuggested();
+      }
+    );
 
     return () => {
       sock.off("follow:changed");
@@ -80,41 +70,19 @@ const RightSidebar = () => {
     };
   }, [user]);
 
+
   const handleFollow = async (userId: number) => {
-  setSuggested((prev) => prev.filter((u) => u.id !== userId));
-  setFollowingIds((prev) => [...prev, userId]);
+    setSuggested((prev) => prev.filter((u) => u.id !== userId));
 
-  try {
-    await api.post(`/follows/${userId}/follow`);
-    toast.success("Followed");
-  } catch {
-    // rollback
-    setSuggested((prev) => [...prev, suggested.find((u) => u.id === userId)!]);
-    setFollowingIds((prev) => prev.filter((id) => id !== userId));
-    toast.error("Failed to follow user");
-  }
-};
-
-
-
-  const handleUnfollow = async (userId: number) => {
-  setFollowingIds((prev) => prev.filter((id) => id !== userId));
-
-  try {
-    await api.delete(`/follows/${userId}/unfollow`);
-    toast.success("Unfollowed");
-
-    const userObj = suggested.find((u) => u.id === userId);
-    if (!userObj) {
-      const res = await api.get(`/users/${userId}`);
-      setSuggested((prev) => [res.data.data.user, ...prev]);
+    try {
+      await api.post(`/follows/${userId}/follow`);
+      toast.success("Followed");
+    } catch {
+      // Rollback
+      fetchSuggested();
+      toast.error("Failed to follow user");
     }
-  } catch {
-    setFollowingIds((prev) => [...prev, userId]);
-    toast.error("Failed to unfollow user");
-  }
-};
-
+  };
 
   if (!user) return null;
 
@@ -131,9 +99,13 @@ const RightSidebar = () => {
             }
             className="w-20 h-20 rounded-full"
           />
-          <h3 className="font-semibold text-lg">{user.full_name || user.username}</h3>
+          <h3 className="font-semibold text-lg">
+            {user.full_name || user.username}
+          </h3>
           <p className="text-gray-400">@{user.username}</p>
-          {user.bio && <p className="text-sm text-gray-300 text-center">{user.bio}</p>}
+          {user.bio && (
+            <p className="text-sm text-gray-300 text-center">{user.bio}</p>
+          )}
         </div>
 
         {/* Follow Stats */}
@@ -148,18 +120,27 @@ const RightSidebar = () => {
           </div>
         </div>
 
-        <Button className="bg-[#222] hover:bg-[#333]" onClick={() => setOpenEdit(true)}>
+        <Button
+          className="bg-[#222] hover:bg-[#333]"
+          onClick={() => setOpenEdit(true)}
+        >
           Edit Profile
         </Button>
 
         {/* Suggested Users */}
         {suggested.length > 0 && (
           <div className="mt-6 flex flex-col flex-1 overflow-hidden">
-            <h4 className="font-semibold text-white mb-2">Suggested for you</h4>
+            <h4 className="font-semibold text-white mb-2">
+              Suggested for you
+            </h4>
+
             <div className="overflow-y-auto flex-1">
               {loadingSuggested && (
-                <p className="text-gray-400 text-sm text-center">Loading...</p>
+                <p className="text-gray-400 text-sm text-center">
+                  Loading...
+                </p>
               )}
+
               {!loadingSuggested &&
                 suggested.map((u) => (
                   <div
@@ -176,26 +157,21 @@ const RightSidebar = () => {
                         className="w-10 h-10 rounded-full object-cover"
                       />
                       <div className="flex flex-col">
-                        <span className="font-semibold text-sm">{u.full_name || u.username}</span>
-                        <span className="text-gray-400 text-xs">@{u.username}</span>
+                        <span className="font-semibold text-sm">
+                          {u.full_name || u.username}
+                        </span>
+                        <span className="text-gray-400 text-xs">
+                          @{u.username}
+                        </span>
                       </div>
                     </div>
 
-                    {isFollowing(u.id) ? (
-                      <Button
-                        onClick={() => handleUnfollow(u.id)}
-                        className="bg-red-500 hover:bg-red-600 text-black text-xs"
-                      >
-                        Unfollow
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => handleFollow(u.id)}
-                        className="bg-green-500 hover:bg-green-600 text-black text-xs"
-                      >
-                        Follow
-                      </Button>
-                    )}
+                    <Button
+                      onClick={() => handleFollow(u.id)}
+                      className="bg-green-500 hover:bg-green-600 text-black text-xs"
+                    >
+                      Follow
+                    </Button>
                   </div>
                 ))}
             </div>
@@ -217,7 +193,11 @@ const RightSidebar = () => {
         · #1 Coding Bootcamp
       </footer>
 
-      <EditProfileDialog open={openEdit} onOpenChange={setOpenEdit} user={user} />
+      <EditProfileDialog
+        open={openEdit}
+        onOpenChange={setOpenEdit}
+        user={user}
+      />
     </aside>
   );
 };
