@@ -311,3 +311,44 @@ export async function getThreadById(req: Request, res: Response, next: NextFunct
     next(error);
   }
 }
+
+export async function getUserPostsById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = Number(req.params.id);
+    const currentUserId = res.locals.currentUser.id;
+
+    const posts = await prisma.thread.findMany({
+      where: { created_by: userId },
+      orderBy: { created_at: "desc" },
+      include: {
+        _count: { select: { likes: true, replies: true } },
+        likes: {
+          where: { user_id: currentUserId },
+          select: { id: true },
+        },
+      },
+    });
+
+    const formattedPosts = posts.map((p) => ({
+      id: p.id,
+      content: p.content,
+      image: p.image,
+      created_at: p.created_at,
+      likes_count: p._count.likes,
+      replies_count: p._count.replies,
+      likedByMe: p.likes.length > 0,
+    }));
+
+    res.status(200).json({
+      status: "success",
+      data: { posts: formattedPosts },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

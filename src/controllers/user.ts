@@ -180,3 +180,67 @@ export async function searchUsers(
     next(err);
   }
 }
+
+// Get user profile by ID
+export async function getUserProfileById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = Number(req.params.id);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        full_name: true,
+        bio: true,
+        photo_profile: true,
+        created_at: true,
+      },
+    });
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: { user },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get follow stats by user ID
+export async function getUserFollowStatsById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = Number(req.params.id);
+
+    const [followers, following] = await Promise.all([
+      prisma.following.count({
+        where: { following_id: userId },
+      }),
+      prisma.following.count({
+        where: { follower_id: userId },
+      }),
+    ]);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        followers,
+        following,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}

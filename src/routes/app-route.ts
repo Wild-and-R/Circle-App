@@ -5,6 +5,7 @@ import {
   getThreads,
   getThreadById,
   getMyPosts,
+  getUserPostsById,
 } from "../controllers/thread";
 import {
   createReply,
@@ -18,7 +19,7 @@ import {
   getSuggestedUsers,
 } from "../controllers/follow";
 import { toggleLikeThread } from "../controllers/like";
-import { updateUserProfile, getCurrentUserProfile, getMyFollowStats, searchUsers } from "../controllers/user";
+import { updateUserProfile, getCurrentUserProfile, getMyFollowStats, searchUsers, getUserFollowStatsById, getUserProfileById } from "../controllers/user";
 import { authenticate } from "../middlewares/auth";
 import { upload } from "../utils/multer";
 
@@ -80,5 +81,12 @@ router.get("/users/suggested", authenticate, getSuggestedUsers);
 
 // search users
 router.get("/users/search", authenticate, searchUsers);
+
+// User profile by id
+router.get("/users/:id", authenticate, getUserProfileById);
+router.get("/users/:id/stats", authenticate, getUserFollowStatsById);
+
+// User posts by id
+router.get("/posts/user/:id", authenticate, getUserPostsById);
 
 export default router;
