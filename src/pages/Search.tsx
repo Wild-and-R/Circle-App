@@ -3,6 +3,7 @@ import { api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: number;
@@ -14,6 +15,7 @@ interface User {
 
 const Search = () => {
   const currentUser = useAppSelector((state) => state.auth.user);
+  const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<User[]>([]);
@@ -59,7 +61,7 @@ const Search = () => {
     return () => clearTimeout(timeout);
   }, [query]);
 
-  // Follow / Unfollow user
+  // Follow / Unfollow
   const toggleFollow = async (userId: number) => {
     if (!currentUser || followLoadingIds.includes(userId)) return;
 
@@ -100,7 +102,6 @@ const Search = () => {
 
       <div className="mt-4 space-y-3">
         {loading && <p className="text-gray-400 text-center">Searching...</p>}
-
         {!loading && results.length === 0 && query && (
           <p className="text-gray-400 text-center">No users found</p>
         )}
@@ -113,7 +114,11 @@ const Search = () => {
               key={user.id}
               className="flex items-center justify-between gap-4 p-3 border border-[#2a2a2a] rounded-lg bg-[#1a1a1a]"
             >
-              <div className="flex items-center gap-3">
+              {/* Clickable Profile */}
+              <div
+                className="flex items-center gap-3 cursor-pointer"
+                onClick={() => navigate(`/profile/${user.id}`)}
+              >
                 <img
                   src={
                     user.photo_profile
@@ -135,6 +140,7 @@ const Search = () => {
                 </div>
               </div>
 
+              {/* Follow Button */}
               <Button
                 onClick={() => toggleFollow(user.id)}
                 disabled={followLoadingIds.includes(user.id)}

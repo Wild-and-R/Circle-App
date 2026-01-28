@@ -3,6 +3,7 @@ import { useAppSelector } from "@/store/hooks";
 import { api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: number;
@@ -14,15 +15,14 @@ interface User {
 
 const Follow = () => {
   const currentUser = useAppSelector((state) => state.auth.user);
+  const navigate = useNavigate();
+
   const [tab, setTab] = useState<"followers" | "following">("followers");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [followLoadingIds, setFollowLoadingIds] = useState<number[]>([]);
-
-  // Track all users the current user is following
   const [followingSet, setFollowingSet] = useState<Set<number>>(new Set());
 
-  // Fetch the current user's following list on first load
   const fetchFollowingList = async () => {
     if (!currentUser) return;
     try {
@@ -34,7 +34,6 @@ const Follow = () => {
     }
   };
 
-  // Fetch users for current tab
   const fetchUsers = async () => {
     if (!currentUser) return;
 
@@ -53,11 +52,11 @@ const Follow = () => {
   };
 
   useEffect(() => {
-    fetchFollowingList(); // load following info on page load
+    fetchFollowingList();
   }, [currentUser]);
 
   useEffect(() => {
-    fetchUsers(); // load users whenever tab changes
+    fetchUsers();
   }, [tab, currentUser]);
 
   const toggleFollow = async (userId: number) => {
@@ -123,7 +122,11 @@ const Follow = () => {
             key={user.id}
             className="flex items-center justify-between border border-gray-700 rounded p-3"
           >
-            <div className="flex items-center gap-3">
+            {/* Clickable Profile */}
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={() => navigate(`/profile/${user.id}`)}
+            >
               <img
                 src={
                   user.photo_profile
@@ -133,14 +136,19 @@ const Follow = () => {
                 className="w-12 h-12 rounded-full"
               />
               <div>
-                <p className="font-semibold">{user.full_name || user.username}</p>
+                <p className="font-semibold">
+                  {user.full_name || user.username}
+                </p>
                 <p className="text-gray-400 text-sm">@{user.username}</p>
                 {user.bio && (
-                  <p className="text-gray-500 text-xs line-clamp-2 max-w-xs">{user.bio}</p>
+                  <p className="text-gray-500 text-xs line-clamp-2 max-w-xs">
+                    {user.bio}
+                  </p>
                 )}
               </div>
             </div>
 
+            {/* Follow Button */}
             <Button
               onClick={() => toggleFollow(user.id)}
               disabled={followLoadingIds.includes(user.id)}
