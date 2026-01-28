@@ -80,48 +80,41 @@ const RightSidebar = () => {
     };
   }, [user]);
 
-  // Optimistic follow
   const handleFollow = async (userId: number) => {
-    // Optimistic update
-    setSuggested((prev) => prev.filter((u) => u.id !== userId));
-    setFollowingCount((prev) => prev + 1);
-    setFollowingIds((prev) => [...prev, userId]);
+  setSuggested((prev) => prev.filter((u) => u.id !== userId));
+  setFollowingIds((prev) => [...prev, userId]);
 
-    try {
-      await api.post(`/follows/${userId}/follow`);
-      toast.success("Followed");
-    } catch {
-      // rollback
-      setSuggested((prev) => [...prev, suggested.find((u) => u.id === userId)!]);
-      setFollowingCount((prev) => prev - 1);
-      setFollowingIds((prev) => prev.filter((id) => id !== userId));
-      toast.error("Failed to follow user");
-    }
-  };
-
-  // Optimistic unfollow
-  const handleUnfollow = async (userId: number) => {
-    // Optimistic update
-    setFollowingCount((prev) => prev - 1);
+  try {
+    await api.post(`/follows/${userId}/follow`);
+    toast.success("Followed");
+  } catch {
+    // rollback
+    setSuggested((prev) => [...prev, suggested.find((u) => u.id === userId)!]);
     setFollowingIds((prev) => prev.filter((id) => id !== userId));
+    toast.error("Failed to follow user");
+  }
+};
 
-    try {
-      await api.delete(`/follows/${userId}/unfollow`);
-      toast.success("Unfollowed");
 
-      // Optionally, add back to suggested list if not already present
-      const userObj = suggested.find((u) => u.id === userId);
-      if (!userObj) {
-        const res = await api.get(`/users/${userId}`);
-        setSuggested((prev) => [res.data.data.user, ...prev]);
-      }
-    } catch {
-      // rollback
-      setFollowingCount((prev) => prev + 1);
-      setFollowingIds((prev) => [...prev, userId]);
-      toast.error("Failed to unfollow user");
+
+  const handleUnfollow = async (userId: number) => {
+  setFollowingIds((prev) => prev.filter((id) => id !== userId));
+
+  try {
+    await api.delete(`/follows/${userId}/unfollow`);
+    toast.success("Unfollowed");
+
+    const userObj = suggested.find((u) => u.id === userId);
+    if (!userObj) {
+      const res = await api.get(`/users/${userId}`);
+      setSuggested((prev) => [res.data.data.user, ...prev]);
     }
-  };
+  } catch {
+    setFollowingIds((prev) => [...prev, userId]);
+    toast.error("Failed to unfollow user");
+  }
+};
+
 
   if (!user) return null;
 
