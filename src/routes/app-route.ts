@@ -4,15 +4,11 @@ import {
   createThread,
   getThreads,
   getThreadById,
-  updateThread,
-  deleteThread,
   getMyPosts,
 } from "../controllers/thread";
 import {
   createReply,
   getRepliesByThread,
-  updateReply,
-  deleteReply,
 } from "../controllers/reply";
 import {
   getFollowing,
@@ -37,8 +33,6 @@ router.get("/threads", authenticate, getThreads);
 router.post("/thread", authenticate, upload.single("image"), createThread);
 
 router.get("/thread/:id", authenticate, getThreadById);
-router.put("/thread/:id", authenticate, upload.single("image"), updateThread);
-router.delete("/thread/:id", authenticate, deleteThread);
 
 // Like / Unlike thread (toggle)
 router.post(
@@ -59,19 +53,6 @@ router.get(
   "/thread/:id/replies",
   authenticate,
   getRepliesByThread
-);
-
-router.put(
-  "/replies/:id",
-  authenticate,
-  upload.single("image"),
-  updateReply
-);
-
-router.delete(
-  "/replies/:id",
-  authenticate,
-  deleteReply
 );
 
 router.get("/posts/me", authenticate, getMyPosts);
